@@ -209,7 +209,7 @@ async def get_funds_list(
 
 @router.get(
     "/{code}",
-    response_model=FundDetailResponse,
+    # response_model=FundDetailResponse,  # 移除 response_model，使用手动序列化
     summary="获取基金详情",
     description="根据基金代码获取单个基金的详细信息",
     responses={
@@ -253,7 +253,7 @@ async def get_fund_detail(
     is_holding = _check_is_holding(code)
 
     # 使用 model_construct 绕过 mypy 对 alias 字段的类型检查
-    return FundDetailResponse.model_construct(
+    resp = FundDetailResponse.model_construct(
         code=data.get("fund_code", ""),
         name=data.get("name", ""),
         type=data.get("type"),
@@ -266,12 +266,13 @@ async def get_fund_detail(
         source=result.source,
         isHolding=is_holding,
         hasRealTimeEstimate=data.get("has_real_time_estimate", True),
-    ).model_dump()
+    )
+    return resp.model_dump()
 
 
 @router.get(
     "/{code}/estimate",
-    response_model=FundEstimateResponse,
+    # response_model=FundEstimateResponse,  # 移除 response_model，使用手动序列化
     summary="获取基金估值",
     description="根据基金代码获取基金的实时估值信息",
     responses={

@@ -16,9 +16,10 @@ const props = withDefaults(defineProps<{
   data: FundHistory[] | FundIntraday[];
   height?: number;
   baseline?: number;
-  changePercent?: number;
+  trend?: 'rising' | 'falling' | 'neutral';
 }>(), {
   height: 100,
+  trend: 'neutral',
 });
 
 const chartContainer = ref<Element | null>(null);
@@ -39,27 +40,10 @@ const hasData = computed(() => {
 let lastDataJson: string = '';
 
 const getTrendColor = (): string => {
-  // 如果传入了 changePercent，基于它来判断颜色
-  if (props.changePercent !== undefined) {
-    return props.changePercent >= 0 ? '#ef4444' : '#22c55e';
-  }
-
-  // 否则回退到原有的数据比较逻辑
-  if (!props.data || props.data.length < 2) return '#22c55e';
-
-  const firstValue = 'close' in props.data[0]
-    ? props.data[0].close
-    : props.data[0].price;
-  const lastValue = 'close' in props.data[props.data.length - 1]
-    ? props.data[props.data.length - 1].close
-    : props.data[props.data.length - 1].price;
-
-  // 数值无效时默认绿色
-  if (typeof firstValue !== 'number' || typeof lastValue !== 'number') {
-    return '#22c55e';
-  }
-
-  return lastValue >= firstValue ? '#ef4444' : '#22c55e';
+  // 优先使用传入的 trend 属性
+  if (props.trend === 'rising') return '#ef4444';
+  if (props.trend === 'falling') return '#22c55e';
+  return '#71717a';
 };
 
 // 解析时间字符串为秒级 Unix 时间戳

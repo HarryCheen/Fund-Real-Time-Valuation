@@ -67,7 +67,7 @@
 
         <div class="change-section" :class="[changeClass, { 'value-updated': changeAnimating }]">
           <!-- 分时图（当有日内数据或历史数据时显示） -->
-          <FundChart v-if="shouldShowChart" :data="chartData" :height="40" chart-type="line" :baseline="baseline" :changePercent="fund.estimateChangePercent" class="inline-chart" />
+          <FundChart v-if="shouldShowChart" :data="chartData" :height="40" chart-type="line" :baseline="baseline" :trend="changeClass" class="inline-chart" />
           <div class="change-info">
             <span class="change-percent font-mono">{{ formatPercent(fund.estimateChangePercent) }}</span>
             <span class="change-indicator-value">
