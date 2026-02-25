@@ -121,13 +121,9 @@
           <h1 class="page-title">{{ pageTitle }}</h1>
         </div>
         <div class="header-right">
-          <div class="ws-status" :class="{ connected: wsStore.isConnected }">
-            <span class="ws-dot"></span>
-            <span class="ws-text">{{ wsStore.isConnected ? '实时' : '轮询' }}</span>
-          </div>
           <div class="status-indicator" :class="healthStatus">
             <span class="status-dot"></span>
-            <span class="status-text">{{ statusText }}</span>
+            <span class="status-text">{{ connectionStatus }}</span>
           </div>
           <button class="refresh-btn" @click="refresh" :disabled="refreshing" :aria-label="refreshing ? '刷新中' : '刷新数据'">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" :class="{ spinning: refreshing }" aria-hidden="true">
@@ -180,7 +176,18 @@ const wsStore = useWSStore();
 const sidebarCollapsed = ref(false);
 const sidebarMobileOpen = ref(false);
 const healthStatus = ref<'healthy' | 'degraded' | 'unhealthy'>('healthy');
-const statusText = ref('已连接');
+const connectionStatus = computed(() => {
+  if (wsStore.isConnected) {
+    return '实时';
+  }
+  if (healthStatus.value === 'healthy') {
+    return '已连接';
+  }
+  if (healthStatus.value === 'degraded') {
+    return '重连中...';
+  }
+  return '连接失败';
+});
 const refreshing = ref(false);
 let healthTimer: number | null = null;
 
@@ -216,10 +223,8 @@ async function checkHealth() {
   try {
     const health = await healthApi.getSimpleHealth();
     healthStatus.value = health.status === 'healthy' ? 'healthy' : 'degraded';
-    statusText.value = health.status === 'healthy' ? '已连接' : '重连中...';
   } catch {
     healthStatus.value = 'unhealthy';
-    statusText.value = '连接失败';
   }
 }
 
@@ -311,10 +316,8 @@ function stopWebSocket() {
 watch(() => wsStore.isConnected, (connected) => {
   if (connected) {
     healthStatus.value = 'healthy';
-    statusText.value = '实时';
   } else {
     healthStatus.value = 'degraded';
-    statusText.value = '重连中...';
   }
 });
 
@@ -536,34 +539,7 @@ onUnmounted(() => {
   gap: var(--spacing-xs);
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--radius-full);
-  background: var(--color-bg-card);
-}
-
-.ws-status {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs) var(--spacing-sm);
-  border-radius: var(--radius-full);
-  background: var(--color-bg-card);
-  
-  .ws-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #FBBF24;
   }
-  
-  &.connected .ws-dot {
-    background: var(--color-rise);
-    box-shadow: 0 0 8px var(--color-rise);
-  }
-  
-  .ws-text {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-  }
-}
 
 .status-dot {
   width: 8px;
