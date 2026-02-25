@@ -18,6 +18,16 @@
           <span class="fund-name" :title="fund.name">{{ fund.name }}</span>
         </div>
         <div class="card-actions">
+          <button 
+            class="action-btn delete-btn" 
+            title="从自选移除" 
+            aria-label="从自选移除"
+            @click.stop="$emit('remove', fund.code)"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+            </svg>
+          </button>
           <button
             class="action-btn holding-btn"
             :class="{ active: fund.isHolding }"
@@ -31,16 +41,6 @@
             </svg>
           </button>
           <span class="fund-type">{{ fund.type || '其他' }}</span>
-          <button 
-            class="action-btn delete-btn" 
-            title="从自选移除" 
-            aria-label="从自选移除"
-            @click.stop="$emit('remove', fund.code)"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-            </svg>
-          </button>
         </div>
       </div>
 
@@ -399,29 +399,31 @@ function formatNetValueDate(dateStr: string): string {
   flex-direction: column;
   gap: var(--spacing-xs);
   min-width: 0;
-  flex: 1 1 50%;
-  max-width: 55%;
+  flex: 0 0 auto;
+  margin-right: var(--spacing-md);
 }
 
 .value-row {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: 2px;
   min-width: 0;
 
   .label {
     flex-shrink: 0;
+    min-width: 24px;
   }
 
   .value {
-    flex: 1 1 auto;
-    min-width: 60px;
-    max-width: 100px;
+    flex: 0 0 auto;
+    min-width: 50px;
+    max-width: 60px;
+    text-align: right;
   }
 
   .value-date {
     flex-shrink: 0;
-    min-width: 45px;
+    min-width: 36px;
     text-align: right;
   }
 
@@ -483,29 +485,39 @@ function formatNetValueDate(dateStr: string): string {
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--radius-md);
   transition: all var(--transition-fast);
-  min-width: 120px;
-  flex: 1 1 50%;
+  min-width: 100px;
+  flex: 0 0 auto;
   width: auto;
 
+  .fund-card.has-chart & {
+    flex: 1 1 50%;
+    min-width: 120px;
+  }
+
   .inline-chart {
-    flex: 1 1 80px;
-    width: auto;
-    max-width: 100px;
+    flex: 0 1 0;
+    width: 0;
+    max-width: 0;
     height: 40px;
-    min-width: 60px;
-    flex-shrink: 1;
+    min-width: 0;
+    flex-shrink: 0;
     opacity: 0;
     transform: scaleX(0);
     transform-origin: left;
     transition: all 0.3s ease;
+    margin: 0;
+    padding: 0;
   }
 
   .fund-card.has-chart & .inline-chart {
     opacity: 1;
     transform: scaleX(1);
     flex: 1 1 80px;
+    width: auto;
     max-width: 100px;
     min-width: 60px;
+    flex-shrink: 1;
+    margin-right: var(--spacing-sm);
   }
 
   .change-info {
