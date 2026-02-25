@@ -259,6 +259,20 @@ function setupWebSocketHandlers() {
     const payload = data as { commodities?: Commodity[] };
     const commodities = payload?.commodities;
     if (commodities && commodities.length > 0) {
+      // 合并数据到 commodityStore（保留本地状态）
+      commodities.forEach((updatedCommodity) => {
+        const index = commodityStore.commodities.findIndex(
+          (c) => c.symbol === updatedCommodity.symbol
+        );
+        if (index !== -1) {
+          // 保留原始字段，只更新价格相关字段
+          const original = commodityStore.commodities[index];
+          commodityStore.commodities[index] = {
+            ...original,
+            ...updatedCommodity,
+          };
+        }
+      });
       commodityStore.lastUpdated = new Date().toLocaleTimeString();
     }
   });
@@ -267,6 +281,18 @@ function setupWebSocketHandlers() {
     const payload = data as { indices?: MarketIndex[] };
     const indices = payload?.indices;
     if (indices && indices.length > 0) {
+      // 合并数据到 indexStore
+      indices.forEach((updatedIndex) => {
+        const index = indexStore.indices.findIndex(
+          (i) => i.symbol === updatedIndex.symbol
+        );
+        if (index !== -1) {
+          indexStore.indices[index] = {
+            ...indexStore.indices[index],
+            ...updatedIndex,
+          };
+        }
+      });
       indexStore.lastUpdated = new Date().toLocaleTimeString();
     }
   });

@@ -19,6 +19,7 @@ from src.datasources.cache_cleaner import CacheCleaner, get_cache_cleaner
 from src.datasources.cache_warmer import CacheWarmer
 from src.datasources.manager import create_default_manager
 from src.utils.log_buffer import get_log_buffer
+from src.utils.realtime_pusher import start_realtime_pusher, stop_realtime_pusher
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,10 @@ async def lifespan(app: FastAPI):
     # 启动后台健康检查（非阻塞）
     asyncio.create_task(manager.start_background_health_check())
 
+    # 启动实时数据推送器
+    await start_realtime_pusher()
+    logger.info("实时数据推送器已启动")
+
     yield
 
     # 停止后台预热
@@ -126,9 +131,12 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
 
+    # 停止实时数据推送器
+    await stop_realtime_pusher()
+    logger.info("实时数据推送器已停止")
+
     # 关闭时清理资源
     await close_data_source_manager()
-
 
 # 创建 FastAPI 应用
 app = FastAPI(
@@ -280,9 +288,8 @@ app.include_router(websocket.router)
 # ==================== 静态文件服务 ====================
 
 import os
+
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 
 _dist_dir = "web/dist"
 
@@ -298,7 +305,6 @@ def setup_static_files(app: FastAPI):
     app.mount("/static", StaticFiles(directory=_dist_dir), name="static")
 
     # 注册异常处理器：404 时返回 index.html
-    from fastapi.exceptions import RequestValidationError
     from starlette.exceptions import HTTPException as StarletteHTTPException
 
     @app.exception_handler(StarletteHTTPException)
