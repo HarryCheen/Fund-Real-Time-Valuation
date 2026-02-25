@@ -74,6 +74,53 @@ from api.routes import funds
 - 组件: PascalCase
 - 禁止使用 `as any`, `@ts-ignore`, `@ts-expect-error`
 
+### 响应式设计
+
+**断点变量** (定义在 `web/src/styles/global.scss`):
+
+```scss
+:root {
+  --breakpoint-xs: 480px;  /* 超小屏 */
+  --breakpoint-sm: 640px;  /* 手机横屏 / 大手机 */
+  --breakpoint-md: 768px;  /* 平板 */
+  --breakpoint-lg: 1024px; /* 小笔记本 */
+  --breakpoint-xl: 1280px; /* 桌面 */
+}
+```
+
+**媒体查询用法**:
+
+```scss
+/* 桌面优先: max-width */
+@media (max-width: var(--breakpoint-sm)) { ... }
+
+/* 避免断点重叠 */
+@media (max-width: calc(var(--breakpoint-md) - 1px)) { ... }
+
+/* 移动优先: min-width */
+@media (min-width: var(--breakpoint-md)) { ... }
+```
+
+**迁移策略**:
+- 新代码: 必须使用 CSS 变量 (`var(--breakpoint-*)`)
+- 现有代码: 保持现状，逐步迁移
+- 混用时确保断点值一致
+
+**已使用断点的组件/视图**:
+- `MainLayout.vue`: 767px (移动端侧边栏)
+- `HomeView.vue`: 768px (首页栅格)
+- `FundsView.vue`: 640px (基金卡片)
+- `FundCard.vue`: 640px, 400px (基金卡片)
+- `SectorsView.vue`: 768px (板块视图)
+
+**移动端适配检查清单**:
+- [ ] 内容不溢出容器
+- [ ] 触摸目标 ≥44px
+- [ ] 字体可读 (最小 12px)
+- [ ] 表格/卡片在窄屏下正确换行或滚动
+
+## 架构
+
 ## 架构
 
 ```
