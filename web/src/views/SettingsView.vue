@@ -7,17 +7,6 @@
 
       <div class="setting-item">
         <div class="setting-info">
-          <span class="setting-label">自动刷新</span>
-          <span class="setting-description">自动获取最新数据</span>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" v-model="autoRefresh" />
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-
-      <div class="setting-item">
-        <div class="setting-info">
           <span class="setting-label">显示折线图</span>
           <span class="setting-description">在基金卡片中显示日内分时折线图</span>
         </div>
@@ -25,19 +14,6 @@
           <input type="checkbox" v-model="showChart" />
           <span class="toggle-slider"></span>
         </label>
-      </div>
-
-      <div class="setting-item" v-if="autoRefresh">
-        <div class="setting-info">
-          <span class="setting-label">刷新间隔</span>
-          <span class="setting-description">每隔 {{ refreshInterval }} 秒刷新数据</span>
-        </div>
-        <select v-model="refreshInterval" class="setting-select">
-          <option :value="10">10 秒</option>
-          <option :value="30">30 秒</option>
-          <option :value="60">1 分钟</option>
-          <option :value="300">5 分钟</option>
-        </select>
       </div>
     </div>
 
@@ -76,18 +52,8 @@ import { useFundStore } from '@/stores/fundStore';
 
 const fundStore = useFundStore();
 
-const autoRefresh = ref(fundStore.autoRefresh ?? true);
 const showChart = ref(fundStore.showChart ?? true);
-const refreshInterval = ref(fundStore.refreshInterval || 30);
 const apiUrl = ref(import.meta.env.VITE_API_URL || 'http://localhost:8000');
-
-watch(autoRefresh, (value) => {
-  fundStore.setAutoRefresh?.(value);
-});
-
-watch(refreshInterval, (value) => {
-  fundStore.setRefreshInterval?.(value);
-});
 
 watch(showChart, (value) => {
   fundStore.setShowChart?.(value);
