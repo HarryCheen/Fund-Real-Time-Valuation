@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Fund, Commodity, Overview, HealthStatus, FundHistory, FundIntraday, MarketIndex, IndexListResponse, CommodityCategory, CommodityHistoryItem, WatchlistResponse, CommoditySearchResponse, AddWatchedCommodityRequest, AddWatchedCommodityResponse, SectorListResponse, SectorDetailResponse, NewsListResponse, NewsCategoriesResponse } from '@/types';
+import type { Fund, Commodity, Overview, HealthStatus, FundHistory, FundIntraday, MarketIndex, IndexListResponse, CommodityCategory, CommodityHistoryItem, WatchlistResponse, CommoditySearchResponse, AddWatchedCommodityRequest, AddWatchedCommodityResponse, SectorListResponse, SectorDetailResponse, NewsListResponse, NewsCategoriesResponse, EconomicEventsData, WeiboSentimentData, SentimentAllData } from '@/types';
 
 // API Configuration
 // 生产环境使用相对路径（同源部署），开发环境可通过环境变量覆盖
@@ -428,6 +428,20 @@ export const stockApi = {
 
   async getStock(code: string): Promise<Stock> {
     return api.get(`/api/stocks/${code}`);
+  },
+};
+
+export const sentimentApi = {
+  async getEconomicEvents(date?: string): Promise<EconomicEventsData> {
+    return api.get('/api/sentiment/economic', { params: { date } });
+  },
+
+  async getWeiboSentiment(period: string = '12h'): Promise<WeiboSentimentData> {
+    return api.get('/api/sentiment/weibo', { params: { period } });
+  },
+
+  async getAllSentiment(date?: string, period: string = '12h'): Promise<SentimentAllData> {
+    return api.get('/api/sentiment/all', { params: { date, period } });
   },
 };
 

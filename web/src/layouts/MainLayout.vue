@@ -59,14 +59,15 @@
           <span v-if="!sidebarCollapsed" class="nav-text">行业板块</span>
         </router-link>
 
-        <router-link to="/news" class="nav-item" :class="{ active: currentRoute === 'news' }">
+
+        <router-link to="/calendar" class="nav-item" :class="{ active: currentRoute === 'calendar' }">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
-            <path d="M18 14h-8"/>
-            <path d="M15 18h-5"/>
-            <path d="M10 6h8v4h-8z"/>
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <path d="M16 2v4"/>
+            <path d="M8 2v4"/>
+            <path d="M3 10h18"/>
           </svg>
-          <span v-if="!sidebarCollapsed" class="nav-text">7×24快讯</span>
+          <span v-if="!sidebarCollapsed" class="nav-text">财经日历</span>
         </router-link>
 
         <router-link to="/bonds" class="nav-item" :class="{ active: currentRoute === 'bonds' }">
@@ -198,8 +199,8 @@ const pageTitle = computed(() => {
     funds: '基金自选',
     commodities: '商品行情',
     indices: '全球市场',
-    sectors: '行业板块',
     news: '7×24快讯',
+    calendar: '财经日历',
     settings: '设置',
   };
   return titles[currentRoute.value] || 'FundVue';

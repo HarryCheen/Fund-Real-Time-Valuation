@@ -34,9 +34,9 @@ const router = createRouter({
           component: () => import('@/views/SectorsView.vue'),
         },
         {
-          path: 'news',
-          name: 'news',
-          component: () => import('@/views/NewsView.vue'),
+          path: 'calendar',
+          name: 'calendar',
+          component: () => import('@/views/EconomicCalendarView.vue'),
         },
         {
           path: 'bonds',

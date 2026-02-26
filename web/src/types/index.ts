@@ -328,3 +328,42 @@ export interface Stock {
   pre_close: number;
   timestamp: string;
 }
+
+// Economic Calendar Types
+export interface EconomicEventItem {
+  日期: string;
+  时间: string;
+  地区: string;
+  事件: string;
+  公布: number | null;
+  预期: number | null;
+  前值: number | null;
+  重要性: number;
+}
+
+export interface EconomicEventsData {
+  events: EconomicEventItem[];
+  timestamp: string;
+  date: string;
+  source: string;
+}
+
+export interface WeiboSentimentItem {
+  name: string;
+  rate: number;
+}
+
+export interface WeiboSentimentData {
+  sentiment: WeiboSentimentItem[];
+  timestamp: string;
+  period: string;
+  source: string;
+}
+
+export interface SentimentAllData {
+  economic: EconomicEventItem[] | null;
+  weibo: WeiboSentimentItem[] | null;
+  timestamp: string;
+  source: string;
+  errors: string[] | null;
+}
