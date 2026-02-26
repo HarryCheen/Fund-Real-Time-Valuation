@@ -3,6 +3,7 @@
 提供抽象基类 DataSource，所有数据源需继承此类并实现抽象方法
 """
 
+import asyncio
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -112,15 +113,52 @@ class DataSource(ABC):
         """关闭数据源连接（子类可选实现）"""
         pass
 
-    @abstractmethod
-    async def fetch_batch(self, *args, **kwargs) -> list[DataSourceResult]:
+    async def fetch_batch(self, keys: list[str]) -> list[DataSourceResult]:
         """
-        批量获取数据（抽象方法，子类可选实现）
+        批量获取数据（默认实现）
+
+        Args:
+            keys: 要获取的数据键列表
 
         Returns:
             List[DataSourceResult]: 返回结果列表
         """
-        pass
+        async def fetch_one(key: str) -> DataSourceResult:
+            return await self.fetch(key)
+
+        tasks = [fetch_one(key) for key in keys]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                processed_results.append(
+                    DataSourceResult(
+                        success=False,
+                        error=str(result),
+                        timestamp=time.time(),
+                        source=self.name,
+                        metadata={"key": keys[i]},
+                    )
+                )
+            else:
+                processed_results.append(result)
+        return processed_results
+
+    def _is_cache_valid(self, cache_key: str) -> bool:
+        """
+        检查缓存是否有效（默认实现）
+
+        Args:
+            cache_key: 缓存键
+
+        Returns:
+            bool: 缓存是否有效
+        """
+        if not hasattr(self, '_cache') or cache_key not in self._cache:
+            return False
+        cache_time = self._cache[cache_key].get("_cache_time", 0)
+        return (time.time() - cache_time) < self._cache_timeout
 
     def _handle_error(self, error: Exception, source: str) -> DataSourceResult:
         """

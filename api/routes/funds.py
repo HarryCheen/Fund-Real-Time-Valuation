@@ -60,24 +60,12 @@ def _check_is_holding(code: str) -> bool:
 
 def get_default_fund_codes() -> list[str]:
     """获取默认基金代码列表"""
-    default_funds = [
-        "161039",  # 易方达消费行业股票
-        "161725",  # 招商中证白酒指数
-        "110022",  # 易方达消费行业
-        "000015",  # 华夏策略精选混合
-        "161032",  # 富国中证新能源汽车指数
-    ]
-
-    try:
-        config_manager = ConfigManager()
-        fund_list: FundList = config_manager.load_funds()
-        codes = fund_list.get_all_codes()
-        if codes:
-            return codes
-    except Exception:
-        pass
-
-    return default_funds
+    config_manager = ConfigManager()
+    fund_list: FundList = config_manager.load_funds()
+    codes = fund_list.get_all_codes()
+    if codes:
+        return codes
+    return []
 
 
 def _calculate_estimate_change(unit_net: float | None, estimate_net: float | None) -> float | None:

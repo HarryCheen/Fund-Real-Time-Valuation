@@ -5,6 +5,7 @@
 
 import logging
 from datetime import datetime
+from functools import cache
 from typing import TypedDict
 
 from fastapi import APIRouter, HTTPException, Query
@@ -32,23 +33,16 @@ class StockData(TypedDict):
     timestamp: str
 
 
-# 创建数据源实例
-_sina_stock_ds = None
-_yahoo_stock_ds = None
+@cache
+def get_sina_stock_source() -> SinaStockDataSource:
+    """获取新浪股票数据源实例"""
+    return SinaStockDataSource()
 
 
-def get_sina_stock_source():
-    global _sina_stock_ds
-    if _sina_stock_ds is None:
-        _sina_stock_ds = SinaStockDataSource()
-    return _sina_stock_ds
-
-
-def get_yahoo_stock_source():
-    global _yahoo_stock_ds
-    if _yahoo_stock_ds is None:
-        _yahoo_stock_ds = YahooStockSource()
-    return _yahoo_stock_ds
+@cache
+def get_yahoo_stock_source() -> YahooStockSource:
+    """获取雅虎股票数据源实例"""
+    return YahooStockSource()
 
 
 def parse_stock_result(result, code: str) -> StockData | None:
