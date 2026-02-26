@@ -2048,6 +2048,15 @@ class Fund123DataSource(DataSource):
             growth_rate = 0.0
             estimate_time = ""
 
+        # 4. 如果日内数据为空，尝试从 search 结果中获取 dayOfGrowth（QDII 基金会有这个字段）
+        day_of_growth = fund_info.get("dayOfGrowth", "")
+        if not intraday_list and day_of_growth:
+            # 解析 "5.59%" -> 5.59
+            try:
+                growth_rate = float(day_of_growth.rstrip('%'))
+            except (ValueError, AttributeError):
+                growth_rate = 0.0
+
         # 3. 获取最新净值信息（从 search 结果中）
         net_value = float(fund_info.get("netValue", 0)) if fund_info.get("netValue") else None
         net_date = str(fund_info.get("netValueDate", ""))
@@ -2115,7 +2124,7 @@ class Fund123DataSource(DataSource):
             "estimated_net_value": estimate_value,
             "estimated_growth_rate": growth_rate if growth_rate else None,
             "estimate_time": estimate_time,
-            "has_real_time_estimate": estimate_value is not None,
+            "has_real_time_estimate": estimate_value is not None or growth_rate != 0.0,
             "intraday": [
                 {
                     "time": time.strftime("%H:%M", time.localtime(item.get("time", 0) / 1000)),
