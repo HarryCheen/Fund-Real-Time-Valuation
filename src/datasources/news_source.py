@@ -25,19 +25,15 @@ class SinaNewsDataSource(DataSource):
             timeout: 请求超时时间
             max_news: 最大获取新闻数量
         """
-        super().__init__(
-            name="sina_news",
-            source_type=DataSourceType.NEWS,
-            timeout=timeout
-        )
+        super().__init__(name="sina_news", source_type=DataSourceType.NEWS, timeout=timeout)
         self.max_news = max_news
         self.client = httpx.AsyncClient(
             timeout=timeout,
             headers={
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
-            }
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+            },
         )
         self._news_cache: list[dict[str, Any]] = []
         self._cache_time: float = 0.0
@@ -54,13 +50,13 @@ class SinaNewsDataSource(DataSource):
             DataSourceResult: 新闻数据结果
         """
         # 检查缓存
-        if self._is_cache_valid():
+        if self._is_cache_valid(category):
             return DataSourceResult(
                 success=True,
-                data=self._news_cache[:self.max_news],
+                data=self._news_cache[: self.max_news],
                 timestamp=self._cache_time,
                 source=self.name,
-                metadata={"from_cache": True, "category": category}
+                metadata={"from_cache": True, "category": category},
             )
 
         try:
@@ -79,10 +75,10 @@ class SinaNewsDataSource(DataSource):
                 self._record_success()
                 return DataSourceResult(
                     success=True,
-                    data=news_list[:self.max_news],
+                    data=news_list[: self.max_news],
                     timestamp=time.time(),
                     source=self.name,
-                    metadata={"category": category}
+                    metadata={"category": category},
                 )
 
             return DataSourceResult(
@@ -90,7 +86,7 @@ class SinaNewsDataSource(DataSource):
                 error="未获取到新闻数据",
                 timestamp=time.time(),
                 source=self.name,
-                metadata={"category": category}
+                metadata={"category": category},
             )
 
         except httpx.HTTPStatusError as e:
@@ -99,7 +95,7 @@ class SinaNewsDataSource(DataSource):
                 error=f"新闻请求失败，状态码: {e.response.status_code}",
                 timestamp=time.time(),
                 source=self.name,
-                metadata={"category": category, "status_code": e.response.status_code}
+                metadata={"category": category, "status_code": e.response.status_code},
             )
         except httpx.RequestError as e:
             return DataSourceResult(
@@ -107,13 +103,14 @@ class SinaNewsDataSource(DataSource):
                 error=f"新闻请求网络错误: {str(e)}",
                 timestamp=time.time(),
                 source=self.name,
-                metadata={"category": category, "error_type": "RequestError"}
+                metadata={"category": category, "error_type": "RequestError"},
             )
         except Exception as e:
             return self._handle_error(e, self.name)
 
     async def fetch_batch(self, categories: list[str]) -> list[DataSourceResult]:
         """批量获取多类别新闻"""
+
         async def fetch_one(cat: str) -> DataSourceResult:
             return await self.fetch(cat)
 
@@ -129,7 +126,7 @@ class SinaNewsDataSource(DataSource):
                         error=str(result),
                         timestamp=time.time(),
                         source=self.name,
-                        metadata={"category": categories[i]}
+                        metadata={"category": categories[i]},
                     )
                 )
             else:
@@ -145,7 +142,7 @@ class SinaNewsDataSource(DataSource):
             "fund": "https://finance.sina.com.cn/fund/",
             "economy": "https://finance.sina.com.cn/realstock/company/sz000001/nc.shtml",
             "global": "https://finance.sina.com.cn/forex/",
-            "commodity": "https://finance.sina.com.cn/future/"
+            "commodity": "https://finance.sina.com.cn/future/",
         }
         return urls.get(category, urls["finance"])
 
@@ -175,7 +172,7 @@ class SinaNewsDataSource(DataSource):
         for name, selector in selectors:
             elements = soup.select(selector)
             if elements:
-                for elem in elements[:self.max_news]:
+                for elem in elements[: self.max_news]:
                     try:
                         title = elem.get_text(strip=True)
                         link = elem.get("href", "")
@@ -184,7 +181,25 @@ class SinaNewsDataSource(DataSource):
                         if not title or len(title) < 6:
                             continue
                         # 过滤导航项
-                        nav_items = ["新浪财经", "财经", "基金", "股票", "财经要闻", "基金新闻", "股票新闻", "期货", "外汇", "黄金", "理财", "视频", "博客", "论坛", "首页", "更多", "APP"]
+                        nav_items = [
+                            "新浪财经",
+                            "财经",
+                            "基金",
+                            "股票",
+                            "财经要闻",
+                            "基金新闻",
+                            "股票新闻",
+                            "期货",
+                            "外汇",
+                            "黄金",
+                            "理财",
+                            "视频",
+                            "博客",
+                            "论坛",
+                            "首页",
+                            "更多",
+                            "APP",
+                        ]
                         if title in nav_items or (title.startswith("新浪") and len(title) < 15):
                             continue
                         # 过滤空链接
@@ -196,13 +211,17 @@ class SinaNewsDataSource(DataSource):
                             time_match = re.search(r"(\d{2}:\d{2}|\d{2}-\d{2})", title)
                             news_time = time_match.group(1) if time_match else ""
 
-                            news_list.append({
-                                "title": title,
-                                "url": link if link.startswith("http") else f"https://finance.sina.com.cn{link}",
-                                "time": news_time,
-                                "category": category,
-                                "source": "sina"
-                            })
+                            news_list.append(
+                                {
+                                    "title": title,
+                                    "url": link
+                                    if link.startswith("http")
+                                    else f"https://finance.sina.com.cn{link}",
+                                    "time": news_time,
+                                    "category": category,
+                                    "source": "sina",
+                                }
+                            )
                     except Exception:
                         continue
 
@@ -222,23 +241,45 @@ class SinaNewsDataSource(DataSource):
                     if not text or len(text) < 6:
                         continue
                     # 过滤导航项和APP推广
-                    nav_items = ["新浪财经", "财经", "基金", "股票", "财经要闻", "基金新闻", "股票新闻", "期货", "外汇", "黄金", "理财", "视频", "博客", "论坛", "首页", "更多", "APP"]
+                    nav_items = [
+                        "新浪财经",
+                        "财经",
+                        "基金",
+                        "股票",
+                        "财经要闻",
+                        "基金新闻",
+                        "股票新闻",
+                        "期货",
+                        "外汇",
+                        "黄金",
+                        "理财",
+                        "视频",
+                        "博客",
+                        "论坛",
+                        "首页",
+                        "更多",
+                        "APP",
+                    ]
                     if text in nav_items or text.startswith("新浪") and len(text) < 15:
                         continue
 
                     # 筛选财经新闻链接
                     if self._is_finance_link(href, text):
-                        news_list.append({
-                            "title": text[:100] if len(text) > 100 else text,
-                            "url": href if href.startswith("http") else f"https://finance.sina.com.cn{href}",
-                            "time": "",
-                            "category": category,
-                            "source": "sina"
-                        })
+                        news_list.append(
+                            {
+                                "title": text[:100] if len(text) > 100 else text,
+                                "url": href
+                                if href.startswith("http")
+                                else f"https://finance.sina.com.cn{href}",
+                                "time": "",
+                                "category": category,
+                                "source": "sina",
+                            }
+                        )
                 except Exception:
                     continue
 
-        return news_list[:self.max_news]
+        return news_list[: self.max_news]
 
     def _is_finance_link(self, href: str, text: str) -> bool:
         """判断是否为财经新闻链接"""
@@ -251,13 +292,7 @@ class SinaNewsDataSource(DataSource):
         ]
 
         # 排除非新闻链接
-        exclude_patterns = [
-            r"javascript:",
-            r"#",
-            r"login",
-            r"register",
-            r"app\.html"
-        ]
+        exclude_patterns = [r"javascript:", r"#", r"login", r"register", r"app\.html"]
 
         for pattern in exclude_patterns:
             if re.search(pattern, href.lower()):
@@ -268,15 +303,31 @@ class SinaNewsDataSource(DataSource):
                 return True
 
         # 基于标题判断
-        finance_keywords = ["基金", "股票", "A股", "港股", "美股", "大盘", "指数", "行情",
-                           "涨幅", "跌幅", "涨停", "跌停", "IPO", "财报", "业绩", "央行"]
+        finance_keywords = [
+            "基金",
+            "股票",
+            "A股",
+            "港股",
+            "美股",
+            "大盘",
+            "指数",
+            "行情",
+            "涨幅",
+            "跌幅",
+            "涨停",
+            "跌停",
+            "IPO",
+            "财报",
+            "业绩",
+            "央行",
+        ]
         for keyword in finance_keywords:
             if keyword in text:
                 return True
 
         return False
 
-    def _is_cache_valid(self) -> bool:
+    def _is_cache_valid(self, cache_key: str) -> bool:
         """检查缓存是否有效"""
         if not self._news_cache:
             return False
@@ -304,11 +355,7 @@ class NewsAggregatorDataSource(DataSource):
     """新闻聚合数据源 - 整合多个新闻源"""
 
     def __init__(self, timeout: float = 20.0):
-        super().__init__(
-            name="news_aggregator",
-            source_type=DataSourceType.NEWS,
-            timeout=timeout
-        )
+        super().__init__(name="news_aggregator", source_type=DataSourceType.NEWS, timeout=timeout)
         self._sources: list[DataSource] = []
         self._default_source: DataSource | None = None
 
@@ -364,11 +411,12 @@ class NewsAggregatorDataSource(DataSource):
             error=f"所有新闻数据源均失败: {'; '.join(errors)}",
             timestamp=time.time(),
             source=self.name,
-            metadata={"category": category, "errors": errors}
+            metadata={"category": category, "errors": errors},
         )
 
     async def fetch_batch(self, categories: list[str]) -> list[DataSourceResult]:
         """批量获取多类别新闻"""
+
         async def fetch_one(cat: str) -> DataSourceResult:
             return await self.fetch(cat)
 
@@ -384,7 +432,7 @@ class NewsAggregatorDataSource(DataSource):
                         error=str(result),
                         timestamp=time.time(),
                         source=self.name,
-                        metadata={"category": categories[i]}
+                        metadata={"category": categories[i]},
                     )
                 )
             else:
@@ -403,7 +451,7 @@ class NewsAggregatorDataSource(DataSource):
     async def close(self):
         """关闭所有数据源"""
         for source in self._sources:
-            if hasattr(source, 'close'):
+            if hasattr(source, "close"):
                 try:
                     await source.close()
                 except Exception:
@@ -425,11 +473,7 @@ class EastMoneyNewsDataSource(DataSource):
             timeout: 请求超时时间
             max_news: 最大获取新闻数量
         """
-        super().__init__(
-            name="eastmoney_news",
-            source_type=DataSourceType.NEWS,
-            timeout=timeout
-        )
+        super().__init__(name="eastmoney_news", source_type=DataSourceType.NEWS, timeout=timeout)
         self.max_news = max_news
 
     async def fetch(self, category: str = "finance") -> DataSourceResult:
@@ -445,49 +489,53 @@ class EastMoneyNewsDataSource(DataSource):
         """
         try:
             import akshare as ak
-            
+
             # 根据类别获取不同类型的新闻
             symbol_map = {
-                "finance": "最新",      # 最新财经新闻
-                "stock": "股票",         # 股票新闻
-                "fund": "基金",          # 基金新闻
-                "economy": "宏观",       # 宏观经济
-                "global": "国际",        # 国际新闻
-                "commodity": "商品"      # 大宗商品
+                "finance": "最新",  # 最新财经新闻
+                "stock": "股票",  # 股票新闻
+                "fund": "基金",  # 基金新闻
+                "economy": "宏观",  # 宏观经济
+                "global": "国际",  # 国际新闻
+                "commodity": "商品",  # 大宗商品
             }
-            
+
             symbol = symbol_map.get(category, "沪深京")
-            
+
             # 获取新闻数据
             df = ak.stock_news_em(symbol=symbol)
-            
+
             if df is not None and not df.empty:
                 news_list = []
                 for _, row in df.head(self.max_news).iterrows():
-                    news_list.append({
-                        "title": str(row.get("新闻标题", "")),
-                        "url": str(row.get("新闻链接", "")),
-                        "time": str(row.get("发布时间", "")),
-                        "source": str(row.get("文章来源", "东方财富")),
-                        "category": category,
-                        "content": str(row.get("新闻内容", ""))[:200] if row.get("新闻内容") else ""
-                    })
-                
+                    news_list.append(
+                        {
+                            "title": str(row.get("新闻标题", "")),
+                            "url": str(row.get("新闻链接", "")),
+                            "time": str(row.get("发布时间", "")),
+                            "source": str(row.get("文章来源", "东方财富")),
+                            "category": category,
+                            "content": str(row.get("新闻内容", ""))[:200]
+                            if row.get("新闻内容")
+                            else "",
+                        }
+                    )
+
                 self._record_success()
                 return DataSourceResult(
                     success=True,
                     data=news_list,
                     timestamp=time.time(),
                     source=self.name,
-                    metadata={"category": category, "count": len(news_list)}
+                    metadata={"category": category, "count": len(news_list)},
                 )
-            
+
             return DataSourceResult(
                 success=False,
                 error="未获取到新闻数据",
                 timestamp=time.time(),
                 source=self.name,
-                metadata={"category": category}
+                metadata={"category": category},
             )
 
         except ImportError:
@@ -496,13 +544,14 @@ class EastMoneyNewsDataSource(DataSource):
                 error="akshare 库未安装",
                 timestamp=time.time(),
                 source=self.name,
-                metadata={"category": category}
+                metadata={"category": category},
             )
         except Exception as e:
             return self._handle_error(e, self.name)
 
     async def fetch_batch(self, categories: list[str]) -> list[DataSourceResult]:
         """批量获取多类别新闻"""
+
         async def fetch_one(cat: str) -> DataSourceResult:
             return await self.fetch(cat)
 

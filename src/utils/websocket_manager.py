@@ -8,7 +8,6 @@ WebSocket 连接管理器模块
 import asyncio
 import logging
 import uuid
-from asyncio import Queue
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime

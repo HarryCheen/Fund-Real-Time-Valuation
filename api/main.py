@@ -138,6 +138,7 @@ async def lifespan(app: FastAPI):
     # 关闭时清理资源
     await close_data_source_manager()
 
+
 # 创建 FastAPI 应用
 app = FastAPI(
     title="基金实时估值 API",
@@ -296,9 +297,10 @@ _dist_dir = "web/dist"
 
 def setup_static_files(app: FastAPI):
     """配置静态文件服务和 SPA fallback"""
+    logger = logging.getLogger(__name__)
 
     if not os.path.isdir(_dist_dir):
-        app.logger.warning(f"静态文件目录不存在: {_dist_dir}，跳过静态文件挂载")
+        logger.warning(f"静态文件目录不存在: {_dist_dir}，跳过静态文件挂载")
         return
 
     # 挂载静态文件

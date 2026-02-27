@@ -32,32 +32,38 @@ class TestSinaNewsDataSource:
         assert news_source._get_category_url("finance") == "https://finance.sina.com.cn/"
         assert news_source._get_category_url("stock") == "https://finance.sina.com.cn/stock/"
         assert news_source._get_category_url("fund") == "https://finance.sina.com.cn/fund/"
-        assert news_source._get_category_url("economy") == "https://finance.sina.com.cn/realstock/company/sz000001/nc.shtml"
+        assert (
+            news_source._get_category_url("economy")
+            == "https://finance.sina.com.cn/realstock/company/sz000001/nc.shtml"
+        )
         # 默认返回 finance URL
         assert news_source._get_category_url("unknown") == "https://finance.sina.com.cn/"
 
     def test_is_cache_valid(self, news_source):
         """测试缓存有效性"""
+        cache_key = "finance"
         # 初始时缓存无效
-        assert news_source._is_cache_valid() is False
+        assert news_source._is_cache_valid(cache_key) is False
 
         # 设置缓存
         news_source._news_cache = [{"title": "test"}]
         news_source._cache_time = time.time()
-        
+
         # 刚设置缓存，有效
-        assert news_source._is_cache_valid() is True
+        assert news_source._is_cache_valid(cache_key) is True
 
         # 设置过期缓存
         news_source._cache_time = time.time() - 400  # 超过5分钟
-        assert news_source._is_cache_valid() is False
+        assert news_source._is_cache_valid(cache_key) is False
 
     def test_is_finance_link(self, news_source):
         """测试财经链接判断"""
         # 正确的财经链接
-        assert news_source._is_finance_link("https://finance.sina.com.cn/stock/", "股票新闻") is True
+        assert (
+            news_source._is_finance_link("https://finance.sina.com.cn/stock/", "股票新闻") is True
+        )
         assert news_source._is_finance_link("https://fund.sina.com.cn/fund/", "基金新闻") is True
-        
+
         # 排除的链接
         assert news_source._is_finance_link("javascript:void(0)", "test") is False
         assert news_source._is_finance_link("#", "test") is False
@@ -95,9 +101,9 @@ class TestSinaNewsDataSource:
     async def test_fetch_error_handling(self, news_source):
         """测试错误处理"""
         # Mock httpx 抛出异常
-        with patch.object(news_source.client, 'get', side_effect=Exception("Network error")):
+        with patch.object(news_source.client, "get", side_effect=Exception("Network error")):
             result = await news_source.fetch("finance")
-            
+
             assert result.success is False
             assert "error" in str(result.error).lower() or "error" in str(result.error)
 
@@ -123,7 +129,7 @@ class TestSinaNewsDataSource:
         news_source._cache_time = 0
 
         # Mock httpx 抛出异常
-        with patch.object(news_source.client, 'get', side_effect=Exception("Network error")):
+        with patch.object(news_source.client, "get", side_effect=Exception("Network error")):
             results = await news_source.fetch_batch(["finance", "stock"])
 
             assert len(results) == 2
@@ -151,12 +157,14 @@ class TestSinaNewsDataSourceMocked:
             <a href="https://finance.sina.com.cn/stock/456.shtml">A股今日上涨</a>
         </html>
         """
-        
+
         mock_response = MagicMock()
         mock_response.text = mock_html
         mock_response.raise_for_status = MagicMock()
 
-        with patch.object(news_source.client, 'get', new_callable=AsyncMock, return_value=mock_response):
+        with patch.object(
+            news_source.client, "get", new_callable=AsyncMock, return_value=mock_response
+        ):
             result = await news_source.fetch("stock")
 
             assert result.success is True
@@ -168,12 +176,15 @@ class TestSinaNewsDataSourceMocked:
     async def test_fetch_http_error(self, news_source):
         """测试HTTP错误处理"""
         import httpx
-        
-        with patch.object(news_source.client, 'get', new_callable=AsyncMock, side_effect=httpx.HTTPStatusError(
-            "404 Not Found",
-            request=MagicMock(),
-            response=MagicMock(status_code=404)
-        )):
+
+        with patch.object(
+            news_source.client,
+            "get",
+            new_callable=AsyncMock,
+            side_effect=httpx.HTTPStatusError(
+                "404 Not Found", request=MagicMock(), response=MagicMock(status_code=404)
+            ),
+        ):
             result = await news_source.fetch("finance")
 
             assert result.success is False
@@ -183,8 +194,13 @@ class TestSinaNewsDataSourceMocked:
     async def test_fetch_request_error(self, news_source):
         """测试网络请求错误处理"""
         import httpx
-        
-        with patch.object(news_source.client, 'get', new_callable=AsyncMock, side_effect=httpx.RequestError("Connection error")):
+
+        with patch.object(
+            news_source.client,
+            "get",
+            new_callable=AsyncMock,
+            side_effect=httpx.RequestError("Connection error"),
+        ):
             result = await news_source.fetch("finance")
 
             assert result.success is False

@@ -50,7 +50,8 @@ class AKShareEconomicNewsDataSource(DataSource):
             DataSourceResult: 财经事件数据结果
         """
         # 检查缓存
-        if self._is_cache_valid():
+        cache_key = date or self.DEFAULT_DATE
+        if self._is_cache_valid(cache_key):
             return DataSourceResult(
                 success=True,
                 data=self._cache,
@@ -130,7 +131,7 @@ class AKShareEconomicNewsDataSource(DataSource):
 
         return processed_results
 
-    def _is_cache_valid(self) -> bool:
+    def _is_cache_valid(self, cache_key: str) -> bool:
         """检查缓存是否有效"""
         if not self._cache:
             return False
@@ -263,7 +264,7 @@ class AKShareWeiboSentimentDataSource(DataSource):
 
         return processed_results
 
-    def _is_cache_valid(self, period: str) -> bool:
+    def _is_cache_valid(self, cache_key: str) -> bool:
         """检查缓存是否有效"""
         if not self._cache:
             return False

@@ -4,7 +4,7 @@
 import csv
 import os
 
-from src.config.models import Fund, Holding
+from src.config.models import Fund
 
 
 class TestExportFundsToCsv:

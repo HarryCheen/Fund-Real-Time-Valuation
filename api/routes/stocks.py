@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class StockData(TypedDict):
     """股票数据响应结构"""
+
     code: str
     name: str
     price: float
@@ -49,7 +50,7 @@ def parse_stock_result(result, code: str) -> StockData | None:
     """解析股票数据源结果"""
     if not result or not result.data:
         return None
-    
+
     data = result.data
     return StockData(
         code=code,
@@ -75,19 +76,19 @@ async def get_stocks(
     code_list = [c.strip().upper() for c in codes.split(",") if c.strip()]
     if not code_list:
         return []
-    
+
     results: list[StockData] = []
-    
+
     # 区分 A 股和港股/美股
     a_stocks = []
     other_stocks = []
-    
+
     for code in code_list:
         if code.startswith("SH") or code.startswith("SZ") or code.startswith("HK"):
             a_stocks.append(code)
         else:
             other_stocks.append(code)
-    
+
     # 新浪 API 获取 A 股
     if a_stocks:
         try:
@@ -96,27 +97,33 @@ async def get_stocks(
             for result in batch_results:
                 if result and result.success and result.data:
                     # 从 result.metadata 中获取 code
-                    stock_code = result.metadata.get("stock_code") if result.metadata else a_stocks[0]
+                    stock_code = (
+                        result.metadata.get("stock_code") if result.metadata else a_stocks[0]
+                    )
+                    stock_code = str(stock_code) if stock_code else a_stocks[0]
                     parsed = parse_stock_result(result, stock_code)
                     if parsed:
                         results.append(parsed)
         except Exception as e:
             logger.error(f"获取A股数据失败: {e}")
-    
+
     # Yahoo API 获取港股/美股
     if other_stocks:
         try:
-            ds = get_yahoo_stock_source()
-            batch_results = await ds.fetch_batch(other_stocks)
+            ds_yahoo = get_yahoo_stock_source()
+            batch_results = await ds_yahoo.fetch_batch(other_stocks)
             for result in batch_results:
                 if result and result.success and result.data:
-                    stock_code = result.metadata.get("symbol") if result.metadata else other_stocks[0]
+                    stock_code = (
+                        result.metadata.get("symbol") if result.metadata else other_stocks[0]
+                    )
+                    stock_code = str(stock_code) if stock_code else other_stocks[0]
                     parsed = parse_stock_result(result, stock_code)
                     if parsed:
                         results.append(parsed)
         except Exception as e:
             logger.error(f"获取港股/美股数据失败: {e}")
-    
+
     return results
 
 

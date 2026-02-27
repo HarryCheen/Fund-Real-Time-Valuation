@@ -143,7 +143,8 @@ class SinaSectorDataSource(DataSource):
             DataSourceResult: 板块数据结果
         """
         # 检查缓存
-        if self._is_cache_valid() and sector_code is None:
+        cache_key = sector_code or "all"
+        if self._is_cache_valid(cache_key) and sector_code is None:
             data = (
                 [s for s in self._cache if s.get("code") == sector_code]
                 if sector_code
@@ -421,7 +422,7 @@ class SinaSectorDataSource(DataSource):
             "time": datetime.now().strftime("%H:%M:%S"),
         }
 
-    def _is_cache_valid(self) -> bool:
+    def _is_cache_valid(self, cache_key: str) -> bool:
         """检查缓存是否有效"""
         if not self._cache:
             return False
