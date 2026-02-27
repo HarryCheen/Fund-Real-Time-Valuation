@@ -6,14 +6,19 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import TypedDict
+from functools import lru_cache
+from typing import TYPE_CHECKING, TypedDict
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.config import get_config_manager
 from src.config.models import Fund, FundList, Holding
 from src.datasources.base import DataSourceType
+from src.datasources.fund_source import Fund123DataSource
 from src.datasources.manager import DataSourceManager
+
+if TYPE_CHECKING:
+    from src.datasources.fund_source import FundHistorySource
 
 from ..dependencies import DataSourceDependency
 from ..models import (
@@ -23,6 +28,9 @@ from ..models import (
     FundEstimateResponse,
     FundIntradayResponse,
     FundResponse,
+    OperationResponse,
+    WatchlistItem,
+    WatchlistResponse,
 )
 
 
@@ -38,6 +46,20 @@ class FundListData(TypedDict):
 router = APIRouter(prefix="/api/funds", tags=["基金"])
 
 logger = logging.getLogger(__name__)
+
+
+@lru_cache
+def _get_fund_history_source() -> "FundHistorySource":
+    """获取基金历史数据源实例（缓存）"""
+    from src.datasources.fund_source import FundHistorySource
+
+    return FundHistorySource()
+
+
+@lru_cache
+def _get_fund123_source() -> Fund123DataSource:
+    """获取 Fund123 数据源实例（缓存）"""
+    return Fund123DataSource()
 
 
 def _check_is_holding(code: str) -> bool:
@@ -344,9 +366,7 @@ async def get_fund_history(
     Returns:
         dict: 包含历史净值数据的字典
     """
-    from src.datasources.fund_source import FundHistorySource
-
-    history_source = FundHistorySource()
+    history_source = _get_fund_history_source()
     result = await history_source.fetch(code, period)
 
     if not result.success or result.data is None:
@@ -384,9 +404,7 @@ async def get_fund_intraday(
     Returns:
         FundIntradayResponse: 基金日内分时数据
     """
-    from src.datasources.fund_source import Fund123DataSource
-
-    fund123_source = Fund123DataSource()
+    fund123_source = _get_fund123_source()
     result = await fund123_source.fetch_intraday(code)
 
     if not result.success or result.data is None:
@@ -433,9 +451,7 @@ async def get_fund_intraday_by_date(
     Returns:
         FundIntradayResponse: 基金日内分时数据
     """
-    from src.datasources.fund_source import Fund123DataSource
-
-    fund123_source = Fund123DataSource()
+    fund123_source = _get_fund123_source()
     result = await fund123_source.fetch_intraday_by_date(code, date)
 
     if not result.success or result.data is None:
@@ -465,26 +481,26 @@ async def get_fund_intraday_by_date(
         500: {"model": ErrorResponse, "description": "服务器错误"},
     },
 )
-async def get_watchlist() -> dict:
+async def get_watchlist() -> WatchlistResponse:
     """
     获取自选基金列表
 
     Returns:
-        dict: 自选基金列表
+        WatchlistResponse: 自选基金列表
     """
     config_manager = get_config_manager()
     fund_list = config_manager.load_funds()
 
     watchlist_data = [
-        {"code": f.code, "name": f.name, "isHolding": fund_list.is_holding(f.code)}
+        WatchlistItem(code=f.code, name=f.name, isHolding=fund_list.is_holding(f.code))
         for f in fund_list.watchlist
     ]
 
-    return {
-        "success": True,
-        "watchlist": watchlist_data,
-        "total": len(watchlist_data),
-    }
+    return WatchlistResponse(
+        success=True,
+        watchlist=watchlist_data,
+        total=len(watchlist_data),
+    )
 
 
 @router.post(
@@ -502,7 +518,7 @@ async def get_watchlist() -> dict:
 async def add_to_watchlist(
     request: AddFundRequest,
     manager: DataSourceManager = Depends(DataSourceDependency()),
-) -> dict:
+) -> OperationResponse:
     """
     添加基金到自选列表
 
@@ -511,7 +527,7 @@ async def add_to_watchlist(
         manager: 数据源管理器依赖
 
     Returns:
-        dict: 添加结果
+        OperationResponse: 添加结果
     """
     # 验证基金是否存在
     result = await manager.fetch(DataSourceType.FUND, request.code)
@@ -535,11 +551,10 @@ async def add_to_watchlist(
     # 添加成功后，触发新基金数据预热（非阻塞）
     asyncio.create_task(_prewarm_added_fund(request.code))
 
-    return {
-        "success": True,
-        "message": f"基金 {request.code} 已添加到自选",
-        "fund": {"code": request.code, "name": fund_name},
-    }
+    return OperationResponse(
+        success=True,
+        message=f"基金 {request.code} 已添加到自选",
+    )
 
 
 @router.put(
@@ -558,7 +573,7 @@ async def toggle_holding(
     code: str,
     holding: bool = Query(..., description="True 表示标记为持有，False 表示取消持有"),
     manager: DataSourceManager = Depends(DataSourceDependency()),
-) -> dict:
+) -> OperationResponse:
     """
     标记/取消持有基金
 
@@ -568,7 +583,7 @@ async def toggle_holding(
         manager: 数据源管理器依赖
 
     Returns:
-        dict: 操作结果
+        OperationResponse: 操作结果
     """
     config_manager = get_config_manager()
     fund_list = config_manager.load_funds()
@@ -576,10 +591,10 @@ async def toggle_holding(
     if holding:
         # 标记为持有
         if fund_list.is_holding(code):
-            return {
-                "success": True,
-                "message": f"基金 {code} 已是持有状态",
-            }
+            return OperationResponse(
+                success=True,
+                message=f"基金 {code} 已是持有状态",
+            )
 
         # 验证基金是否存在
         result = await manager.fetch(DataSourceType.FUND, code)
@@ -605,27 +620,27 @@ async def toggle_holding(
         # 标记为持有后，触发基金数据预热（非阻塞）
         asyncio.create_task(_prewarm_added_fund(code))
 
-        return {
-            "success": True,
-            "message": f"基金 {code} 已标记为持有",
-        }
+        return OperationResponse(
+            success=True,
+            message=f"基金 {code} 已标记为持有",
+        )
     else:
         # 取消持有
         if not fund_list.is_holding(code):
-            return {
-                "success": True,
-                "message": f"基金 {code} 不在持有列表中",
-            }
+            return OperationResponse(
+                success=True,
+                message=f"基金 {code} 不在持有列表中",
+            )
 
         config_manager.remove_holding(code)
 
         # 取消持有后，清理相关缓存
         asyncio.create_task(_cleanup_removed_fund(code))
 
-        return {
-            "success": True,
-            "message": f"基金 {code} 已取消持有",
-        }
+        return OperationResponse(
+            success=True,
+            message=f"基金 {code} 已取消持有",
+        )
 
 
 @router.delete(
@@ -639,7 +654,7 @@ async def toggle_holding(
         500: {"model": ErrorResponse, "description": "服务器错误"},
     },
 )
-async def remove_from_watchlist(code: str) -> dict:
+async def remove_from_watchlist(code: str) -> OperationResponse:
     """
     从自选列表中移除基金
 
@@ -647,7 +662,7 @@ async def remove_from_watchlist(code: str) -> dict:
         code: 基金代码 (6位数字)
 
     Returns:
-        dict: 删除结果
+        OperationResponse: 删除结果
     """
     config_manager = get_config_manager()
 
@@ -665,10 +680,10 @@ async def remove_from_watchlist(code: str) -> dict:
     # 移除成功后，清理相关缓存
     asyncio.create_task(_cleanup_removed_fund(code))
 
-    return {
-        "success": True,
-        "message": f"基金 {code} 已从自选移除",
-    }
+    return OperationResponse(
+        success=True,
+        message=f"基金 {code} 已从自选移除",
+    )
 
 
 async def _prewarm_added_fund(fund_code: str):

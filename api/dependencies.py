@@ -1,73 +1,37 @@
 """
 依赖注入模块
 提供 FastAPI 应用所需的各种依赖项
+
+注意：此模块使用应用级单例模式，通过 lifespan 进行初始化。
+这种设计保证了：
+1. 数据源管理器在应用生命周期内只初始化一次
+2. 所有请求共享同一个管理器实例，提高性能
+3. 便于测试时通过 set_data_source_manager 替换为 mock 对象
 """
 
-from src.config import get_config_manager as get_config_manager_func
+from src.config import get_config_manager as get_config_manager_from_config
 from src.config.manager import ConfigManager
 from src.datasources.manager import DataSourceManager, create_default_manager
 
-# 全局数据源管理器实例
-_data_source_manager: DataSourceManager | None = None
+from .dependencies_impl import (
+    CloseDataSourceManager,
+    DataSourceDependency,
+    close_data_source_manager,
+    get_data_source_manager,
+    set_data_source_manager,
+)
 
+# 重新导出配置管理器函数
+get_config_manager = get_config_manager_from_config
 
-def get_data_source_manager() -> DataSourceManager:
-    """
-    获取数据源管理器实例（单例）
-
-    Returns:
-        DataSourceManager: 数据源管理器实例
-    """
-    global _data_source_manager
-    if _data_source_manager is None:
-        _data_source_manager = create_default_manager()
-    return _data_source_manager
-
-
-def set_data_source_manager(manager: DataSourceManager) -> None:
-    """
-    设置数据源管理器实例（用于测试）
-
-    Args:
-        manager: 数据源管理器实例
-    """
-    global _data_source_manager
-    _data_source_manager = manager
-
-
-async def close_data_source_manager() -> None:
-    """关闭数据源管理器"""
-    global _data_source_manager
-    if _data_source_manager is not None:
-        await _data_source_manager.close_all()
-        _data_source_manager = None
-
-
-def DataSourceDependency() -> DataSourceManager:
-    """
-    FastAPI 依赖：获取数据源管理器
-
-    Returns:
-        DataSourceManager: 数据源管理器实例
-
-    Usage:
-        @app.get("/items")
-        async def read_items(manager: DataSourceManager = Depends(DataSourceDependency)):
-            ...
-    """
-    return get_data_source_manager()
-
-
-def ConfigManagerDependency() -> ConfigManager:
-    """
-    FastAPI 依赖：获取配置管理器
-
-    Returns:
-        ConfigManager: 配置管理器实例
-
-    Usage:
-        @app.get("/funds")
-        async def get_funds(config: ConfigManager = Depends(ConfigManagerDependency)):
-            ...
-    """
-    return get_config_manager_func()
+__all__ = [
+    "DataSourceManager",
+    "create_default_manager",
+    "ConfigManager",
+    "get_config_manager",
+    "get_data_source_manager",
+    "set_data_source_manager",
+    "close_data_source_manager",
+    "DataSourceDependency",
+    "CloseDataSourceManager",
+]

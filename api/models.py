@@ -179,3 +179,26 @@ class FundIntradayResponse(BaseModel):
     data: list[FundIntradayPoint] = Field(default_factory=list, description="日内分时数据点列表")
     count: int = Field(..., description="数据点数量")
     source: str = Field(default="fund123", description="数据源")
+
+
+class WatchlistItem(BaseModel):
+    """自选基金项"""
+
+    code: str = Field(..., description="基金代码")
+    name: str = Field(..., description="基金名称")
+    isHolding: bool = Field(..., description="是否持有")
+
+
+class WatchlistResponse(BaseModel):
+    """自选列表响应"""
+
+    success: bool = Field(default=True, description="是否成功")
+    watchlist: list[WatchlistItem] = Field(..., description="自选列表")
+    total: int = Field(..., description="总数")
+
+
+class OperationResponse(BaseModel):
+    """操作响应"""
+
+    success: bool = Field(default=True, description="是否成功")
+    message: str = Field(..., description="响应消息")

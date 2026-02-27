@@ -181,7 +181,20 @@ import os
 
 # 配置 CORS
 # 使用环境变量控制允许的来源，生产环境应设置为具体的域名
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+_allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+if _allowed_origins_env:
+    ALLOWED_ORIGINS = _allowed_origins_env.split(",")
+else:
+    # 默认只允许本地开发
+    ALLOWED_ORIGINS = ["http://localhost:3000", "http://localhost:8000"]
+    # 如果在生产环境且未设置 ALLOWED_ORIGINS，发出警告
+    if os.getenv("ENVIRONMENT") == "production":
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "生产环境未设置 ALLOWED_ORIGINS 环境变量，CORS 仅允许 localhost。"
+            "请设置 ALLOWED_ORIGINS 环境变量以允许其他来源。"
+        )
 
 app.add_middleware(
     CORSMiddleware,
@@ -287,10 +300,6 @@ app.include_router(websocket.router)
 
 
 # ==================== 静态文件服务 ====================
-
-import os
-
-from fastapi import FastAPI, Request
 
 _dist_dir = "web/dist"
 

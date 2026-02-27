@@ -5,8 +5,7 @@
 
 import logging
 from datetime import datetime
-
-logger = logging.getLogger(__name__)
+from functools import lru_cache
 from typing import Any, TypedDict
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -27,6 +26,8 @@ from src.db.database import DatabaseManager
 
 from ..dependencies import DataSourceDependency
 from ..models import CommodityResponse, ErrorResponse
+
+logger = logging.getLogger(__name__)
 
 
 class CommodityListData(TypedDict):
@@ -89,6 +90,12 @@ CATEGORY_ICONS = {
 
 # 支持的商品类型列表
 SUPPORTED_COMMODITIES = get_all_commodity_types()
+
+
+@lru_cache
+def _get_yfinance_source() -> YFinanceCommoditySource:
+    """获取 YFinance 商品数据源实例（缓存）"""
+    return YFinanceCommoditySource()
 
 
 def _commodity_to_item(data: dict[str, Any], source: str) -> CommodityCategoryItem:
@@ -310,9 +317,7 @@ async def get_history(
         ]
 
         # 获取商品名称
-        from src.datasources.commodity_source import YFinanceCommoditySource
-
-        name_source = YFinanceCommoditySource()
+        name_source = _get_yfinance_source()
         name = name_source.get_name(commodity_type)
 
         return {
@@ -397,7 +402,7 @@ async def get_gold_international() -> dict:
     Returns:
         CommodityResponse: 国际黄金行情
     """
-    source = YFinanceCommoditySource()
+    source = _get_yfinance_source()
     result = await source.fetch("gold")
 
     if not result.success or not result.data:
@@ -442,7 +447,7 @@ async def get_wti_oil() -> dict:
     Returns:
         CommodityResponse: WTI 原油行情
     """
-    source = YFinanceCommoditySource()
+    source = _get_yfinance_source()
     result = await source.fetch("wti")
 
     if not result.success or not result.data:
@@ -505,7 +510,7 @@ class CommodityByTickerResponse(TypedDict):
 async def get_commodity_by_ticker(symbol: str) -> CommodityByTickerResponse:
     """按 ticker 获取商品行情"""
     try:
-        source = YFinanceCommoditySource()
+        source = _get_yfinance_source()
         result = await source.fetch_by_ticker(symbol)
 
         if not result.success or not result.data:
