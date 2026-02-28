@@ -72,7 +72,6 @@ from .hot_backup import (
     HotBackupManager,
     HotBackupResult,
 )
-
 from .stock_source import (
     BaostockStockSource,
     SinaStockDataSource,
@@ -121,7 +120,7 @@ __all__ = [
     "CommodityDataSource",
     "YFinanceCommoditySource",
     "AKShareCommoditySource",
-    # 债券数据源
+    "CommodityDataAggregator",
     # 债券数据源
     "SinaBondDataSource",
     "AKShareBondSource",

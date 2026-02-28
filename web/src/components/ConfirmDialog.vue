@@ -34,7 +34,7 @@ interface Props {
   cancelText?: string;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   title: '确认操作',
   confirmText: '确认',
   cancelText: '取消',

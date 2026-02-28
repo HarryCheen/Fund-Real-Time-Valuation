@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
 
@@ -10,7 +9,7 @@ export interface Toast {
   duration?: number
 }
 
-const props = defineProps<{
+defineProps<{
   toasts: Toast[]
 }>()
 

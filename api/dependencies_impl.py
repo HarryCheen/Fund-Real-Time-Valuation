@@ -3,8 +3,6 @@
 包含依赖项的具体实现
 """
 
-from typing import Callable
-
 from src.config import get_config_manager as get_config_manager_func
 from src.config.manager import ConfigManager
 from src.datasources.manager import DataSourceManager, create_default_manager
@@ -82,5 +80,5 @@ class ConfigManagerDependency:
 
 
 # 为向后兼容保留别名
-DataSourceDependencyCallable: Callable[[], DataSourceManager] = DataSourceDependency
-ConfigManagerDependencyCallable: Callable[[], ConfigManager] = ConfigManagerDependency
+DataSourceDependencyCallable = DataSourceDependency
+ConfigManagerDependencyCallable = ConfigManagerDependency

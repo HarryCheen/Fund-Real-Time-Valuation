@@ -93,10 +93,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useFundStore } from '@/stores/fundStore';
 import FundCard from '@/components/FundCard.vue';
-import MarketOverview from '@/components/MarketOverview.vue';
 import AddFundDialog from '@/components/AddFundDialog.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
-import type { Overview } from '@/types';
 
 // 加载骨架屏数量常量
 const LOADING_SKELETON_COUNT = 6;
