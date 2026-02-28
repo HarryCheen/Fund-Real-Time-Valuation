@@ -62,7 +62,7 @@ class TestQdiiFofTypeRecognition:
         assert response["hasRealTimeEstimate"] is False
 
     def test_fof_type_from_name(self):
-        """测试 FOF 类型识别"""
+        """测试 FOF 类型识别 - 普通 FOF 有实时估值"""
         from api.routes.funds import build_fund_response
 
         # 基金名称包含 FOF
@@ -75,16 +75,16 @@ class TestQdiiFofTypeRecognition:
             "estimated_growth_rate": 0.93,
             "net_value_date": "2024-01-10",
             "estimate_time": "2024-01-10 15:00",
-            "has_real_time_estimate": False,
+            "has_real_time_estimate": True,  # 普通 FOF 有实时估值
         }
 
         response = build_fund_response(data, source="tiantian")
 
         assert response["type"] == "FOF"
-        assert response["hasRealTimeEstimate"] is False
+        assert response["hasRealTimeEstimate"] is True
 
     def test_fof_type_from_name_with_parentheses(self):
-        """测试 "(FOF)" 后缀识别"""
+        """测试 "(FOF)" 后缀识别 - 普通 FOF 有实时估值"""
         from api.routes.funds import build_fund_response
 
         # 基金名称包含 "(FOF)"
@@ -97,13 +97,13 @@ class TestQdiiFofTypeRecognition:
             "estimated_growth_rate": 0.95,
             "net_value_date": "2024-01-10",
             "estimate_time": "2024-01-10 15:00",
-            "has_real_time_estimate": False,
+            "has_real_time_estimate": True,  # 普通 FOF 有实时估值
         }
 
         response = build_fund_response(data, source="tiantian")
 
         assert response["type"] == "FOF"
-        assert response["hasRealTimeEstimate"] is False
+        assert response["hasRealTimeEstimate"] is True
 
 
 class TestHasRealTimeEstimate:
@@ -157,18 +157,125 @@ class TestHasRealTimeEstimate:
 
         assert response["hasRealTimeEstimate"] is True
 
-    def test_has_real_time_estimate_for_fof(self):
-        """FOF 基金 hasRealTimeEstimate 应为 False"""
+    def test_has_real_time_estimate_for_fof_domestic(self):
+        """国内 FOF 基金 hasRealTimeEstimate 应为 True（底层资产是国内基金）"""
         from api.routes.funds import build_fund_response
 
         data = {
             "fund_code": "005217",
             "name": "交银施罗德安享稳健养老目标一年持有FOF",
             "type": "FOF",
+            "has_real_time_estimate": True,
+        }
+        response = build_fund_response(data)
+        assert response["hasRealTimeEstimate"] is True
+
+    def test_has_real_time_estimate_for_fof_overseas(self):
+        """投资海外的 FOF 基金 hasRealTimeEstimate 应为 False"""
+        from api.routes.funds import build_fund_response
+
+        # 名称包含"海外"
+        data = {
+            "fund_code": "005218",
+            "name": "某海外投资FOF",
+            "type": "FOF",
             "has_real_time_estimate": False,
         }
         response = build_fund_response(data)
         assert response["hasRealTimeEstimate"] is False
+
+        # 名称包含"全球"
+        data = {
+            "fund_code": "005219",
+            "name": "某全球配置FOF",
+            "type": "FOF",
+            "has_real_time_estimate": False,
+        }
+        response = build_fund_response(data)
+        assert response["hasRealTimeEstimate"] is False
+
+        # QDII-FOF
+        data = {
+            "fund_code": "005220",
+            "name": "某QDII-FOF",
+            "type": "FOF",
+            "has_real_time_estimate": False,
+        }
+        response = build_fund_response(data)
+        assert response["hasRealTimeEstimate"] is False
+
+
+class TestHasRealTimeEstimateFunction:
+    """测试 _has_real_time_estimate 函数"""
+
+    def test_qdii_no_real_time(self):
+        """QDII 基金无实时估值"""
+        from src.datasources.fund_source import _has_real_time_estimate
+
+        assert _has_real_time_estimate("QDII", "华夏全球精选") is False
+
+    def test_normal_fund_has_real_time(self):
+        """普通基金有实时估值"""
+        from src.datasources.fund_source import _has_real_time_estimate
+
+        assert _has_real_time_estimate("股票型", "富国中证新能源汽车指数") is True
+        assert _has_real_time_estimate("混合型", "某混合基金") is True
+        assert _has_real_time_estimate("债券型", "某债券基金") is True
+
+    def test_fof_domestic_has_real_time(self):
+        """国内 FOF 有实时估值"""
+        from src.datasources.fund_source import _has_real_time_estimate
+
+        # 普通 FOF（名称不含海外/全球/QDII）
+        assert _has_real_time_estimate("FOF", "交银施罗德安享稳健养老目标一年持有FOF") is True
+        assert _has_real_time_estimate("FOF", "中银添利稳健养老目标一年(FOF)") is True
+
+    def test_fof_overseas_no_real_time(self):
+        """投资海外的 FOF 无实时估值"""
+        from src.datasources.fund_source import _has_real_time_estimate
+
+        # 名称包含"海外"
+        assert _has_real_time_estimate("FOF", "某海外投资FOF") is False
+        # 名称包含"全球"
+        assert _has_real_time_estimate("FOF", "某全球配置FOF") is False
+        # 名称包含"QDII"
+        assert _has_real_time_estimate("FOF", "某QDII-FOF基金") is False
+
+    def test_etf_link_has_real_time(self):
+        """ETF-联接基金有实时估值"""
+        from src.datasources.fund_source import _has_real_time_estimate
+
+        # ETF-联接基金跟踪国内基金，有实时估值
+        assert _has_real_time_estimate("ETF-联接", "华夏上证50ETF联接") is True
+
+    def test_empty_type_returns_false(self):
+        """空类型返回 False"""
+        from src.datasources.fund_source import _has_real_time_estimate
+
+        assert _has_real_time_estimate("", "某基金") is False
+        assert _has_real_time_estimate(None, "某基金") is False  # type: ignore
+
+    def test_none_fund_name_safe_handling(self):
+        """fund_name 为 None 时安全处理"""
+        from src.datasources.fund_source import _has_real_time_estimate
+
+        # fund_name 为 None 时不应抛出异常
+        # QDII 类型无论 name 如何都返回 False
+        assert _has_real_time_estimate("QDII", None) is False  # type: ignore
+
+        # 普通 FOF，name 为 None，应返回 True（不包含海外关键词）
+        assert _has_real_time_estimate("FOF", None) is True  # type: ignore
+
+        # 普通基金，name 为 None
+        assert _has_real_time_estimate("股票型", None) is True  # type: ignore
+
+    def test_case_insensitive_qdii_detection(self):
+        """QDII 检测不区分大小写"""
+        from src.datasources.fund_source import _has_real_time_estimate
+
+        # FOF 中检测 QDII（大小写不敏感）
+        assert _has_real_time_estimate("FOF", "某qdii-fof基金") is False
+        assert _has_real_time_estimate("FOF", "某Qdii-FOF基金") is False
 
 
 class TestCalculateEstimateChange:
@@ -375,7 +482,7 @@ class TestBuildFundResponse:
         assert response["hasRealTimeEstimate"] is True
 
     def test_build_fund_response_with_fof(self):
-        """FOF 基金测试"""
+        """FOF 基金测试 - 普通 FOF 有实时估值"""
         from api.routes.funds import build_fund_response
 
         data = {
@@ -387,13 +494,13 @@ class TestBuildFundResponse:
             "estimated_net_value": 1.08,
             "estimated_growth_rate": 0.0,
             "estimate_time": "2024-01-10 15:00",
-            "has_real_time_estimate": False,
+            "has_real_time_estimate": True,  # 普通 FOF 有实时估值
         }
 
         response = build_fund_response(data, source="tiantian")
 
         assert response["type"] == "FOF"
-        assert response["hasRealTimeEstimate"] is False
+        assert response["hasRealTimeEstimate"] is True
         assert response["estimateChange"] == 0.0
 
     def test_build_fund_response_missing_fields(self):
@@ -417,7 +524,7 @@ class TestBuildFundResponse:
         assert response["hasRealTimeEstimate"] is True  # 默认值
 
     def test_build_fund_response_with_etf_link(self):
-        """ETF-联接基金测试"""
+        """ETF-联接基金测试 - 应有实时估值（底层资产是国内基金）"""
         from api.routes.funds import build_fund_response
 
         data = {
@@ -429,13 +536,13 @@ class TestBuildFundResponse:
             "estimated_net_value": 1.52,
             "estimated_growth_rate": 1.33,
             "estimate_time": "2024-01-10 15:00",
-            "has_real_time_estimate": False,
+            "has_real_time_estimate": True,  # ETF-联接基金有实时估值
         }
 
         response = build_fund_response(data)
 
         assert response["type"] == "ETF-联接"
-        assert response["hasRealTimeEstimate"] is False
+        assert response["hasRealTimeEstimate"] is True
 
 
 if __name__ == "__main__":

@@ -1256,6 +1256,11 @@ class FundDailyCacheDAO:
         """
         self.db = db_manager
         self.cache_ttl = cache_ttl
+        if cache_ttl == 0:
+            logger.warning(
+                "FundDailyCacheDAO 初始化时 cache_ttl=0，缓存将永不过期。"
+                "这可能导致数据陈旧，建议在生产环境中设置合理的 TTL 值。"
+            )
 
     def save_daily(
         self,
@@ -1427,8 +1432,13 @@ class FundDailyCacheDAO:
         检查缓存是否过期
 
         缓存过期条件（满足任一）：
-        1. 缓存日期不是今天（或最近交易日）
-        2. 缓存时间超过 TTL
+        1. 缓存不存在
+        2. 缓存时间超过 TTL（如果 TTL > 0）
+
+        注意：不再检查净值日期是否为今天，因为：
+        - QDII 基金的净值日期通常比国内市场晚一天（投资海外市场）
+        - 非交易日时净值日期也不会更新
+        - 只要缓存时间未过期，数据就是有效的
 
         Args:
             fund_code: 基金代码
@@ -1463,19 +1473,12 @@ class FundDailyCacheDAO:
             if row is None:
                 return True  # 不存在缓存，视为过期
 
-            cached_date = row["date"]
             fetched_at = row["fetched_at"]
 
             if not fetched_at:
                 return True
 
-            # 1. 检查缓存日期是否过期（不是今天）
-            today = datetime.now().strftime("%Y-%m-%d")
-            if cached_date != today:
-                # 缓存日期不是今天，视为过期
-                return True
-
-            # 2. 检查 TTL 过期
+            # 检查 TTL 过期
             if self.cache_ttl > 0:
                 try:
                     fetched_time = datetime.fromisoformat(fetched_at.replace("Z", ""))
@@ -1485,7 +1488,7 @@ class FundDailyCacheDAO:
                 except (ValueError, TypeError):
                     return True  # 时间解析失败，视为过期
 
-            return False  # TTL=0 且日期是今天，缓存有效
+            return False  # TTL=0，缓存永久有效
 
     def clear_cache(self, fund_code: str, date: str | None = None) -> int:
         """

@@ -76,7 +76,8 @@ def get_daily_cache_dao() -> FundDailyCacheDAO:
     global _daily_cache_dao
     if _daily_cache_dao is None:
         db_manager = DatabaseManager()
-        _daily_cache_dao = FundDailyCacheDAO(db_manager)
+        # 设置 5 分钟缓存过期时间
+        _daily_cache_dao = FundDailyCacheDAO(db_manager, cache_ttl=300)
     return _daily_cache_dao
 
 
@@ -255,6 +256,42 @@ def _infer_fund_type_from_name(fund_name: str) -> str:
         return "股票型"
 
     return ""
+
+
+def _has_real_time_estimate(fund_type: str, fund_name: str) -> bool:
+    """
+    判断基金是否有实时估值
+
+    规则：
+    - QDII 基金：无实时估值（投资海外市场，净值更新延迟）
+    - FOF 基金投资海外基金（QDII-FOF）：无实时估值
+    - 其他 FOF、ETF-联接基金：有实时估值（底层资产是国内基金）
+    - 普通基金：有实时估值
+
+    Args:
+        fund_type: 基金类型
+        fund_name: 基金名称
+
+    Returns:
+        bool: 是否有实时估值
+    """
+    if not fund_type:
+        return False
+
+    # QDII 基金无实时估值
+    if fund_type == "QDII":
+        return False
+
+    # FOF 基金需要进一步判断是否投资海外
+    if fund_type == "FOF":
+        name_upper = (fund_name or "").upper()
+        # QDII-FOF 或投资海外的 FOF 无实时估值
+        if "QDII" in name_upper or "海外" in name_upper or "全球" in name_upper:
+            return False
+        return True
+
+    # 其他类型有实时估值
+    return True
 
 
 def _get_net_value_date_from_akshare(fund_code: str) -> tuple[str, float] | None:
@@ -606,15 +643,12 @@ class FundDataSource(DataSource):
                             data["type"] = "FOF"
                             fund_type = "FOF"
 
-                    # 根据基金类型判断是否有实时估值（QDII/FOF 等没有实时估值）
-                    no_realtime_types = {"QDII", "FOF", "ETF-联接"}
-                    # 如果 fund_type 为空字符串，则没有实时估值
-                    data["has_real_time_estimate"] = (
-                        bool(fund_type) and fund_type not in no_realtime_types
-                    )
+                    # 根据基金类型和名称判断是否有实时估值
+                    fund_name = data.get("name", "")
+                    data["has_real_time_estimate"] = _has_real_time_estimate(fund_type, fund_name)
 
-                    # QDII/FOF 等基金需要获取上一交易日净值用于对比
-                    if fund_type in no_realtime_types:
+                    # QDII 基金或投资海外的 FOF 需要获取上一交易日净值用于对比
+                    if not data["has_real_time_estimate"]:
                         # 调用东方财富接口获取上一净值
                         lof_result = await self._fetch_lof(fund_code, has_real_time_estimate=False)
                         if lof_result.success:
@@ -871,9 +905,8 @@ class FundDataSource(DataSource):
             if not fund_name:
                 fund_name = f"基金 {fund_code}"
 
-            # 根据基金类型判断是否有实时估值（QDII/FOF 等投资海外市场或为基金中基金，净值更新延迟）
-            no_realtime_types = {"QDII", "FOF", "ETF-联接"}
-            has_real_time = has_real_time_estimate and fund_type not in no_realtime_types
+            # 根据基金类型和名称判断是否有实时估值
+            has_real_time = has_real_time_estimate and _has_real_time_estimate(fund_type, fund_name)
 
             # 提取数据
             # 使用已过滤的有效数据 df_valid 获取最新和上一条记录
@@ -2116,6 +2149,11 @@ class Fund123DataSource(DataSource):
         if not fund_type:
             fund_type = _infer_fund_type_from_name(fund_name)
 
+        # 判断是否有实时估值
+        # QDII 基金和投资海外的 FOF 无实时估值，因为它们投资海外市场，净值更新延迟
+        # ETF-联接和普通 FOF 基金有实时估值，因为它们跟踪的底层资产是国内基金
+        has_real_time = _has_real_time_estimate(fund_type, fund_name) and estimate_value is not None
+
         # 从数据库缓存获取上一交易日净值
         prev_net_value = None
         prev_net_value_date = None
@@ -2144,7 +2182,7 @@ class Fund123DataSource(DataSource):
             "estimated_net_value": estimate_value,
             "estimated_growth_rate": growth_rate if growth_rate else None,
             "estimate_time": estimate_time,
-            "has_real_time_estimate": estimate_value is not None or growth_rate != 0.0,
+            "has_real_time_estimate": has_real_time,
             "intraday": [
                 {
                     "time": time.strftime("%H:%M", time.localtime(item.get("time", 0) / 1000)),
