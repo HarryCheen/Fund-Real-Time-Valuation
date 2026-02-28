@@ -13,34 +13,36 @@
 
     <template v-else>
       <div class="card-header">
-        <div class="fund-info">
+        <div class="header-row">
           <span class="fund-code">{{ fund.code }}</span>
-          <span class="fund-name" :title="fund.name">{{ fund.name }}</span>
+          <div class="card-actions">
+            <button
+              class="action-btn delete-btn"
+              title="从自选移除"
+              aria-label="从自选移除"
+              @click.stop="$emit('remove', fund.code)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+              </svg>
+            </button>
+            <button
+              class="action-btn holding-btn"
+              :class="{ active: fund.isHolding }"
+              :title="fund.isHolding ? '取消持有' : '标记持有'"
+              :aria-label="fund.isHolding ? '取消持有' : '标记为持有'"
+              @click.stop="toggleHolding"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path v-if="fund.isHolding" d="M5 12l5 5L19 7" stroke-linecap="round" stroke-linejoin="round"/>
+                <path v-else d="M12 5v14M5 12h14" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <span class="fund-type">{{ fund.type || '其他' }}</span>
+          </div>
         </div>
-        <div class="card-actions">
-          <button 
-            class="action-btn delete-btn" 
-            title="从自选移除" 
-            aria-label="从自选移除"
-            @click.stop="$emit('remove', fund.code)"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-            </svg>
-          </button>
-          <button
-            class="action-btn holding-btn"
-            :class="{ active: fund.isHolding }"
-            :title="fund.isHolding ? '取消持有' : '标记持有'"
-            :aria-label="fund.isHolding ? '取消持有' : '标记为持有'"
-            @click.stop="toggleHolding"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path v-if="fund.isHolding" d="M5 12l5 5L19 7" stroke-linecap="round" stroke-linejoin="round"/>
-              <path v-else d="M12 5v14M5 12h14" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <span class="fund-type">{{ fund.type || '其他' }}</span>
+        <div class="fund-name-row">
+          <span class="fund-name" :title="fund.name">{{ fund.name }}</span>
         </div>
       </div>
 
@@ -290,39 +292,49 @@ function formatNetValueDate(dateStr: string): string {
 
 .card-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
   margin-bottom: var(--spacing-md);
+  gap: var(--spacing-xs);
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
 }
 
 .card-actions {
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
-}
-
-.fund-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
+  flex-shrink: 0;
 }
 
 .fund-code {
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
   font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.fund-name-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 .fund-name {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  width: 100%;
 }
 
 .fund-type {
@@ -614,13 +626,8 @@ function formatNetValueDate(dateStr: string): string {
   color: var(--color-text-tertiary);
 }
 
-.fund-card-chart {
-  margin-top: var(--spacing-sm);
-  padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--color-divider);
-}
-
 // 响应式布局 - 窄屏幕优化
+// 断点说明：640px 对应 --breakpoint-sm，400px 为自定义超小屏断点
 @media (max-width: 640px) {
   .fund-card {
     padding: var(--spacing-md);
@@ -684,6 +691,10 @@ function formatNetValueDate(dateStr: string): string {
 
   .fund-name {
     font-size: var(--font-size-sm);
+  }
+
+  .fund-code {
+    font-size: var(--font-size-xs);
   }
 
   .value {

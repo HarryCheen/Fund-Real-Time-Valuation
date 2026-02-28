@@ -308,6 +308,11 @@ class YFinanceCommoditySource(CommodityDataSource):
 
     async def fetch_by_ticker(self, ticker: str) -> DataSourceResult:
         """根据任意 ticker 获取商品数据"""
+        # 检查是否是 Binance 加密货币 ticker (如 BTCUSDT, ETHUSDT)
+        for commodity_type, symbol in self._crypto_tickers.items():
+            if symbol == ticker:
+                return await self._fetch_from_binance(commodity_type)
+
         import yfinance as yf
 
         try:
