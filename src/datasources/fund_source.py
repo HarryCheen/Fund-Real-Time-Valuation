@@ -1888,6 +1888,61 @@ class Fund123DataSource(DataSource):
         token = await cls._get_csrf_token()
         return token is not None
 
+    async def _get_prev_net_value(self, fund_code: str) -> tuple[float | None, str | None]:
+        """
+        获取上一交易日净值（用于折线图基准线）
+
+        优先从数据库缓存获取，如果不足则从 akshare 获取。
+
+        Args:
+            fund_code: 基金代码
+
+        Returns:
+            (prev_net_value, prev_net_value_date) 元组，获取失败返回 (None, None)
+        """
+        prev_net_value: float | None = None
+        prev_net_value_date: str | None = None
+
+        # 1. 尝试从数据库缓存获取
+        try:
+            daily_dao = get_daily_cache_dao()
+            recent_days = daily_dao.get_recent_days(fund_code, 2)
+            if len(recent_days) >= 2:
+                # 第二条记录是上一个交易日
+                prev_record = recent_days[1]
+                prev_net_value = prev_record.unit_net_value
+                prev_net_value_date = prev_record.date
+        except Exception as e:
+            logger.warning(f"获取上一交易日净值失败: {e}")
+
+        # 2. 如果数据库缓存不足，尝试从 akshare 获取
+        if prev_net_value is None:
+            try:
+                import akshare as ak
+
+                loop = asyncio.get_running_loop()
+                df = await loop.run_in_executor(
+                    None,
+                    lambda: ak.fund_etf_fund_info_em(fund=fund_code),
+                )
+                if df is not None and len(df) >= 2:
+                    # 过滤有效数据
+                    df_valid = df[df["净值日期"].notna()]
+                    if len(df_valid) >= 2:
+                        prev_row = df_valid.iloc[-2]
+                        raw_value = prev_row.get("单位净值")
+                        if pd.notna(raw_value):
+                            prev_net_value = float(raw_value)
+                            prev_net_value_date = str(prev_row.get("净值日期", ""))
+                            logger.info(
+                                f"从 akshare 获取前日净值成功: {fund_code} -> "
+                                f"{prev_net_value}, 日期: {prev_net_value_date}"
+                            )
+            except Exception as e:
+                logger.warning(f"从 akshare 获取前日净值失败: {fund_code} - {e}")
+
+        return prev_net_value, prev_net_value_date
+
     async def fetch(self, fund_code: str, use_cache: bool = True) -> DataSourceResult:
         """
         获取单个基金数据
@@ -1928,6 +1983,9 @@ class Fund123DataSource(DataSource):
                     if basic_info:
                         fund_type = basic_info.get("type", "") or ""
 
+                    # 获取上一交易日净值（用于折线图基准线）
+                    prev_net_value, prev_net_value_date = await self._get_prev_net_value(fund_code)
+
                     # 构建返回数据格式
                     result_data = {
                         "fund_code": fund_code,
@@ -1935,6 +1993,8 @@ class Fund123DataSource(DataSource):
                         "type": fund_type,
                         "net_value_date": cached_daily.date,
                         "unit_net_value": cached_daily.unit_net_value,
+                        "prev_net_value": prev_net_value,
+                        "prev_net_value_date": prev_net_value_date,
                         "estimated_net_value": cached_daily.estimated_value,
                         "estimated_growth_rate": cached_daily.change_rate,
                         "estimate_time": cached_daily.fetched_at or cached_daily.date,
@@ -2175,22 +2235,8 @@ class Fund123DataSource(DataSource):
         # ETF-联接和普通 FOF 基金有实时估值，因为它们跟踪的底层资产是国内基金
         has_real_time = _has_real_time_estimate(fund_type, fund_name) and estimate_value is not None
 
-        # 从数据库缓存获取上一交易日净值
-        prev_net_value = None
-        prev_net_value_date = None
-        try:
-            daily_dao = get_daily_cache_dao()
-            recent_days = daily_dao.get_recent_days(fund_code, 2)
-            if len(recent_days) >= 2:
-                # 第二条记录是上一个交易日
-                prev_record = recent_days[1]
-                prev_net_value = prev_record.unit_net_value
-                prev_net_value_date = prev_record.date
-            elif len(recent_days) == 1:
-                # 只有今天一条记录，无法获取上一交易日
-                pass
-        except Exception as e:
-            logger.warning(f"获取上一交易日净值失败: {e}")
+        # 获取上一交易日净值（用于折线图基准线）
+        prev_net_value, prev_net_value_date = await self._get_prev_net_value(fund_code)
 
         result_data = {
             "fund_code": fund_code,

@@ -275,6 +275,8 @@ async def get_fund_detail(
         "type": data.get("type"),
         "unit_net_value": data.get("unit_net_value"),
         "net_value_date": data.get("net_value_date"),
+        "prev_net_value": data.get("prev_net_value"),
+        "prev_net_value_date": data.get("prev_net_value_date"),
         "estimated_net_value": data.get("estimated_net_value"),
         "estimated_growth_rate": data.get("estimated_growth_rate"),
         "estimate_time": data.get("estimate_time"),
