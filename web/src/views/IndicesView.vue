@@ -91,6 +91,7 @@ import type { MarketIndex } from '@/types';
 const indexStore = useIndexStore();
 
 // Empty index for loading skeleton
+// eslint-disable-next-line no-useless-assignment
 const emptyIndex: MarketIndex = {
   index: '---',
   symbol: '---',

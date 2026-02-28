@@ -12,6 +12,11 @@ import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { FundHistory, FundIntraday } from '@/types';
 
+// 扩展 uPlot 接口以支持自定义属性
+interface uPlotWithBaseline extends uPlot {
+  _baselineColor?: string;
+}
+
 const props = withDefaults(defineProps<{
   data: FundHistory[] | FundIntraday[];
   height?: number;
@@ -26,9 +31,11 @@ const chartContainer = ref<Element | null>(null);
 let uplotInstance: uPlot | null = null;
 
 // 响应式获取趋势颜色 - 当数据变化时自动重新计算
+ 
 const color = computed(() => getTrendColor());
 
 // 判断是否有有效数据用于显示空状态
+// eslint-disable-next-line no-useless-assignment
 const hasData = computed(() => {
   // 如果没有图表实例且没有数据，显示空状态
   if (!uplotInstance && (!props.data || props.data.length === 0)) return false;
@@ -130,15 +137,16 @@ const initChart = () => {
             const baseline = props.baseline;
             const yScale = u.scales.y;
             if (!yScale) return;
-            
+
             // 计算基准线在图表中的 Y 坐标
             const yPos = u.valToPos(baseline, 'y', true);
             if (yPos < 0 || yPos > u.bbox.height) return; // 如果在图表外则不绘制
-            
+
             const ctx = u.ctx;
             ctx.save();
             // 优先使用存储的基准线颜色，否则回退到动态获取
-            ctx.strokeStyle = (u as any)._baselineColor ?? getTrendColor();
+            const uWithBaseline = u as uPlotWithBaseline;
+            ctx.strokeStyle = uWithBaseline._baselineColor ?? getTrendColor();
             ctx.lineWidth = 1;
             ctx.setLineDash([4, 4]); // 虚线
             ctx.beginPath();
@@ -238,7 +246,7 @@ const updateColor = () => {
     // uPlot setSeries API requires series options
     uplotInstance.setSeries(1, { stroke: newColor });
     // 存储基准线颜色并强制重绘，以更新基准线颜色
-    (uplotInstance as any)._baselineColor = newColor;
+    (uplotInstance as uPlotWithBaseline)._baselineColor = newColor;
     uplotInstance.redraw();
   } catch (e) {
     console.warn('[FundChart] updateColor error:', e);

@@ -59,6 +59,7 @@ const props = withDefaults(defineProps<Props>(), {
   loading: false,
 });
 
+// eslint-disable-next-line no-useless-assignment
 const changeClass = computed(() => {
   if (props.overview && props.overview.totalChangePercent > 0) return 'rising';
   if (props.overview && props.overview.totalChangePercent < 0) return 'falling';

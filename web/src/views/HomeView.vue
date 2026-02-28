@@ -11,20 +11,15 @@ const commodityStore = useCommodityStore();
 const indexStore = useIndexStore();
 
 // 计算属性
+// eslint-disable-next-line no-useless-assignment
 const hasFunds = computed(() => fundStore.funds.length > 0);
 
 
 
+// eslint-disable-next-line no-useless-assignment
 const topGainers = computed(() => fundStore.topGainers.slice(0, 3));
+// eslint-disable-next-line no-useless-assignment
 const topLosers = computed(() => fundStore.topLosers.slice(0, 3));
-
-function formatValue(value: number | undefined | null): string {
-  if (value == null) return '--';
-  if (value >= 10000) {
-    return (value / 10000).toFixed(2) + '万';
-  }
-  return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 function formatPercent(value: number | undefined | null): string {
   if (value == null) return '--';

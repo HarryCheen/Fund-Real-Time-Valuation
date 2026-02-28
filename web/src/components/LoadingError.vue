@@ -8,6 +8,7 @@ defineProps<{
   errorText?: string
 }>()
 
+// eslint-disable-next-line no-useless-assignment
 const emit = defineEmits<{
   (e: 'retry'): void
 }>()

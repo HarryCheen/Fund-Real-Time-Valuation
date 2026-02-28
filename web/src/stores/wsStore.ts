@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { useWebSocket, type WSMessage, type SubscriptionType } from '@/composables/useWebSocket'
+import { useWebSocket, type SubscriptionType } from '@/composables/useWebSocket'
 
 export const useWSStore = defineStore('websocket', () => {
   const ws = useWebSocket({
@@ -8,16 +8,8 @@ export const useWSStore = defineStore('websocket', () => {
     reconnectInterval: 3000,
   })
 
-  const isConnected = ref(false)
   const subscriptions = ref<Set<SubscriptionType>>(new Set())
   const messageHandlers = ref<Map<string, ((data: unknown) => void)[]>>(new Map())
-
-  function handleMessage(message: WSMessage) {
-    const handlers = messageHandlers.value.get(message.type)
-    if (handlers) {
-      handlers.forEach(handler => handler(message.data))
-    }
-  }
 
   function on(type: string, handler: (data: unknown) => void) {
     if (!messageHandlers.value.has(type)) {

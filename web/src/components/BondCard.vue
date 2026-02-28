@@ -20,6 +20,7 @@ const props = withDefaults(defineProps<Props>(), {
   amount: undefined,
 });
 
+// eslint-disable-next-line no-useless-assignment
 const changeClass = computed(() => {
   if (props.changePct === undefined || props.changePct === null) return '';
   return props.changePct >= 0 ? 'positive' : 'negative';

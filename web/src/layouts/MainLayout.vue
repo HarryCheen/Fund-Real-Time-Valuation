@@ -177,6 +177,7 @@ const wsStore = useWSStore();
 const sidebarCollapsed = ref(false);
 const sidebarMobileOpen = ref(false);
 const healthStatus = ref<'healthy' | 'degraded' | 'unhealthy'>('healthy');
+// eslint-disable-next-line no-useless-assignment
 const connectionStatus = computed(() => {
   if (wsStore.isConnected) {
     return '实时';
@@ -192,7 +193,9 @@ const connectionStatus = computed(() => {
 const refreshing = ref(false);
 let healthTimer: number | null = null;
 
+ 
 const currentRoute = computed(() => route.name as string || 'home');
+// eslint-disable-next-line no-useless-assignment
 const pageTitle = computed(() => {
   const titles: Record<string, string> = {
     home: '首页',
@@ -205,6 +208,7 @@ const pageTitle = computed(() => {
   return titles[currentRoute.value] || 'FundVue';
 });
 
+// eslint-disable-next-line no-useless-assignment
 const lastUpdated = computed(() => fundStore.lastUpdated || commodityStore.lastUpdated || indexStore.lastUpdated);
 
 function toggleSidebar() {
@@ -344,13 +348,6 @@ onUnmounted(() => {
     clearInterval(healthTimer);
   }
   window.removeEventListener('resize', handleResize);
-});
-
-onUnmounted(() => {
-  stopWebSocket();
-  if (healthTimer) {
-    clearInterval(healthTimer);
-  }
 });
 </script>
 

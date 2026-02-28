@@ -97,6 +97,7 @@ import AddFundDialog from '@/components/AddFundDialog.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 
 // 加载骨架屏数量常量
+// eslint-disable-next-line no-useless-assignment
 const LOADING_SKELETON_COUNT = 6;
 
 // 空基金状态类型（用于骨架屏显示）
@@ -111,6 +112,7 @@ interface EmptyFundState {
 }
 
 const fundStore = useFundStore();
+// eslint-disable-next-line no-useless-assignment
 const showAddDialog = ref(false);
 const isMounted = ref(true);
 
@@ -119,6 +121,7 @@ const showConfirmDialog = ref(false);
 const removingFundCode = ref('');
 
 // 空基金数据用于加载骨架屏
+// eslint-disable-next-line no-useless-assignment
 const emptyFund: EmptyFundState = {
   code: '---',
   name: '加载中...',
@@ -130,13 +133,18 @@ const emptyFund: EmptyFundState = {
 };
 
 // 计算属性：是否显示加载状态
+ 
 const isLoading = computed(() => fundStore.loading);
+ 
 const hasFunds = computed(() => fundStore.holdingFirstFunds.length > 0);
+ 
 const hasError = computed(() => !!fundStore.error);
 
 // 模板条件简化：显示骨架屏
+// eslint-disable-next-line no-useless-assignment
 const showSkeleton = computed(() => isLoading.value && !hasFunds.value);
 // 模板条件简化：显示基金列表
+// eslint-disable-next-line no-useless-assignment
 const showFundList = computed(() => hasFunds.value && !hasError.value);
 
 async function handleRemoveFund(code: string) {

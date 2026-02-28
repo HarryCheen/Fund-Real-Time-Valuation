@@ -6,6 +6,25 @@ import { ApiError } from '@/api';
 import { formatTime } from '@/utils/time';
 import { getCommodityName } from '@/utils/commodityNames';
 
+// 商品详情 API 返回类型联合
+type CommodityDetailResponse = {
+  symbol: string;
+  name: string;
+  price: number;
+  currency?: string;
+  change: number | null;
+  change_percent?: number | null;
+  changePercent?: number;
+  high?: number;
+  low?: number;
+  open?: number;
+  prev_close?: number;
+  prevClose?: number;
+  source: string;
+  time?: string;
+  timestamp: string;
+};
+
 // 防抖函数（支持异步函数返回 Promise）
 function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
   func: T,
@@ -476,24 +495,43 @@ export const useCommodityStore = defineStore('commodities', () => {
 
       const fetchPromises = watchedCommodities.value.map(async (watched) => {
         try {
-          let data: any;
+          let data: CommodityDetailResponse;
           const symbol = watched.symbol.toUpperCase();
           if (symbol === 'AU99.99' || symbol === 'SG=F' || symbol.includes('AU99')) {
-            data = await commodityApi.getGoldCNY();
+            const goldData = await commodityApi.getGoldCNY();
+            data = {
+              symbol: goldData.symbol,
+              name: goldData.name,
+              price: goldData.price,
+              change: goldData.change,
+              changePercent: goldData.changePercent,
+              source: 'akshare',
+              timestamp: goldData.timestamp,
+            };
           } else {
-            data = await commodityApi.getCommodityByTicker(watched.symbol);
+            const tickerData = await commodityApi.getCommodityByTicker(watched.symbol);
+            data = {
+              symbol: tickerData.symbol,
+              name: tickerData.name,
+              price: tickerData.price,
+              currency: tickerData.currency,
+              change: tickerData.change,
+              change_percent: tickerData.change_percent,
+              source: tickerData.source,
+              timestamp: tickerData.timestamp,
+            };
           }
           return {
             symbol: data.symbol,
             name: getCommodityName(data.symbol, data.name),
             price: data.price,
             currency: data.currency,
-            change: data.change ?? data.change_percent ? (data.price * data.change_percent / 100) : 0,
-            changePercent: data.change_percent ?? 0,
+            change: data.change ?? (data.change_percent ? (data.price * data.change_percent / 100) : 0),
+            changePercent: data.change_percent ?? data.changePercent ?? 0,
             high: data.high ?? 0,
             low: data.low ?? 0,
             open: data.open ?? 0,
-            prevClose: data.prev_close ?? 0,
+            prevClose: data.prev_close ?? data.prevClose ?? 0,
             source: data.source,
             timestamp: data.time ?? data.timestamp,
           } as Commodity;

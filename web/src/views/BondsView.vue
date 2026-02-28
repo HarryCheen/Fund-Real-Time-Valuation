@@ -18,11 +18,13 @@ const error = ref<string | null>(null);
 const searchKeyword = ref('');
 const selectedType = ref('cbond');
 
+// eslint-disable-next-line no-useless-assignment
 const bondTypes = [
   { value: 'cbond', label: '可转债' },
   { value: 'bond_china', label: '中国债券' },
 ];
 
+// eslint-disable-next-line no-useless-assignment
 const filteredBonds = computed(() => {
   if (!searchKeyword.value) return bonds.value;
   const keyword = searchKeyword.value.toUpperCase();

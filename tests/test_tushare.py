@@ -6,6 +6,9 @@ TDD 方式实现 - 先写测试
 
 import pytest
 
+# tushare 是可选依赖，如果未安装则跳过所有测试
+pytest.importorskip("tushare")
+
 from src.datasources.fund_source import TushareFundSource
 
 

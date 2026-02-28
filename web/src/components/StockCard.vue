@@ -111,6 +111,7 @@ watch(() => props.stock.change_pct, (newVal, oldVal) => {
 });
 
 // 涨跌分类
+// eslint-disable-next-line no-useless-assignment
 const changeClass = computed(() => {
   if (props.stock.change_pct > 0) return 'rising';
   if (props.stock.change_pct < 0) return 'falling';

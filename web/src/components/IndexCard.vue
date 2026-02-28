@@ -98,6 +98,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 // Use a computed property to handle potential undefined values
+// eslint-disable-next-line no-useless-assignment
 const indexData = computed(() => props.index);
 
 const prevPrice = ref<number | undefined>();
@@ -131,12 +132,14 @@ function triggerChangeAnimation() {
   setTimeout(() => changeAnimating.value = false, 500);
 }
 
+// eslint-disable-next-line no-useless-assignment
 const changeClass = computed(() => {
   if (props.index.changePercent > 0) return 'rising';
   if (props.index.changePercent < 0) return 'falling';
   return 'neutral';
 });
 
+// eslint-disable-next-line no-useless-assignment
 const regionLabel = computed(() => {
   const labels: Record<string, string> = {
     'china': 'A股',
@@ -148,6 +151,7 @@ const regionLabel = computed(() => {
   return labels[props.index.region || ''] || props.index.region || '';
 });
 
+// eslint-disable-next-line no-useless-assignment
 const sourceName = computed(() => {
   const source = props.index.source;
   if (!source) return '';
@@ -158,6 +162,7 @@ const sourceName = computed(() => {
   return source;
 });
 
+// eslint-disable-next-line no-useless-assignment
 const statusText = computed(() => {
   const labels: Record<string, string> = {
     'open': '交易中',
@@ -170,6 +175,7 @@ const statusText = computed(() => {
 });
 
 // 判断是否为延时数据源
+// eslint-disable-next-line no-useless-assignment
 const isDelayed = computed(() => {
   // 优先使用后端返回的 isDelayed 字段
   if (props.index.isDelayed !== undefined) {

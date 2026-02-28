@@ -1,11 +1,11 @@
 /// <reference types="vite/client" />
 
 declare module '*.scss' {
-  const content: any
+  const content: Record<string, string>
   export default content
 }
 
 declare module '*.sass' {
-  const content: any
+  const content: Record<string, string>
   export default content
 }

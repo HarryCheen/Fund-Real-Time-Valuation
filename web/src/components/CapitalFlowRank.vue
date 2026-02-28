@@ -83,12 +83,14 @@ defineEmits<{
 
 const activeTab = ref<'inflow' | 'outflow'>('inflow');
 
+// eslint-disable-next-line no-useless-assignment
 const tabs = [
   { key: 'inflow' as const, label: '净流入' },
   { key: 'outflow' as const, label: '净流出' },
 ];
 
 // 过滤和排序数据
+// eslint-disable-next-line no-useless-assignment
 const displayList = computed(() => {
   let list = props.sectors.filter(s => s.mainInflow !== undefined);
 
@@ -104,6 +106,7 @@ const displayList = computed(() => {
 });
 
 // 获取涨跌样式类
+// eslint-disable-next-line no-useless-assignment
 const getChangeClass = (value: number | undefined): string => {
   if (value === undefined) return 'neutral';
   if (value > 0) return 'rising';
@@ -112,6 +115,7 @@ const getChangeClass = (value: number | undefined): string => {
 };
 
 // 格式化百分比
+// eslint-disable-next-line no-useless-assignment
 const formatPercent = (value: number | undefined): string => {
   if (value === undefined || isNaN(value)) return '--';
   const sign = value >= 0 ? '+' : '';
@@ -119,6 +123,7 @@ const formatPercent = (value: number | undefined): string => {
 };
 
 // 格式化资金流向
+// eslint-disable-next-line no-useless-assignment
 const formatFlow = (value: number | undefined): string => {
   if (value === undefined || isNaN(value)) return '--';
   const sign = value >= 0 ? '+' : '';
@@ -126,6 +131,7 @@ const formatFlow = (value: number | undefined): string => {
 };
 
 // 计算资金流向条宽度
+ 
 const maxFlowValue = computed(() => {
   const flows = props.sectors
     .filter(s => s.mainInflow !== undefined)
@@ -133,6 +139,7 @@ const maxFlowValue = computed(() => {
   return Math.max(...flows, 1);
 });
 
+// eslint-disable-next-line no-useless-assignment
 const getFlowWidth = (value: number | undefined): string => {
   if (value === undefined || isNaN(value)) return '0%';
   const percentage = (Math.abs(value) / maxFlowValue.value) * 100;

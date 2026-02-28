@@ -127,11 +127,13 @@ const chartData = computed(() => {
 });
 
 // 是否显示图表
+// eslint-disable-next-line no-useless-assignment
 const shouldShowChart = computed(() => {
   return fundStore.showChart && chartData.value.length > 0;
 });
 
 // 涨跌样式
+// eslint-disable-next-line no-useless-assignment
 const changeClass = computed(() => {
   if (props.fund.estimateChangePercent > 0) return 'rising';
   if (props.fund.estimateChangePercent < 0) return 'falling';
@@ -139,6 +141,7 @@ const changeClass = computed(() => {
 });
 
 // 基准线 - 昨日净值
+// eslint-disable-next-line no-useless-assignment
 const baseline = computed(() => {
   if (props.fund.prevNetValue && props.fund.prevNetValue > 0) {
     return props.fund.prevNetValue;

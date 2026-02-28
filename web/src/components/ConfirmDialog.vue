@@ -46,6 +46,7 @@ const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void;
 }>();
 
+// eslint-disable-next-line no-useless-assignment
 const titleId = computed(() => `confirm-dialog-title-${Math.random().toString(36).slice(2, 9)}`);
 
 function handleConfirm() {

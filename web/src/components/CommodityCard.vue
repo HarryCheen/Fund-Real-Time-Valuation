@@ -96,6 +96,7 @@ const props = withDefaults(defineProps<Props>(), {
 const store = useCommodityStore();
 
 // 简化数据源名称显示
+// eslint-disable-next-line no-useless-assignment
 const sourceName = computed(() => {
   const source = props.commodity.source;
   if (!source) return '';
@@ -128,12 +129,14 @@ onMounted(() => {
 });
 
 // 检查该商品是否在关注列表中
+ 
 const isWatched = computed(() => {
   return store.watchedCommodities.some(
     (item) => item.symbol.toUpperCase() === props.commodity.symbol.toUpperCase()
   );
 });
 
+// eslint-disable-next-line no-useless-assignment
 const changeClass = computed(() => {
   if (props.commodity.changePercent > 0) return 'rising';
   if (props.commodity.changePercent < 0) return 'falling';
@@ -225,6 +228,7 @@ function isInTradingHours(market: string, timeValue: number): boolean {
 }
 
 // 交易状态判断
+ 
 const tradingStatus = computed(() => {
   // 优先使用后端返回的状态
   if (props.commodity.tradingStatus) {
@@ -306,6 +310,7 @@ const tradingStatus = computed(() => {
   return 'unknown';
 });
 
+// eslint-disable-next-line no-useless-assignment
 const statusText = computed(() => {
   const labels: Record<string, string> = {
     'open': '交易中',
