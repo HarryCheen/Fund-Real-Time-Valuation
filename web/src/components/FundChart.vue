@@ -31,7 +31,6 @@ const chartContainer = ref<Element | null>(null);
 let uplotInstance: uPlot | null = null;
 
 // 响应式获取趋势颜色 - 当数据变化时自动重新计算
- 
 const color = computed(() => getTrendColor());
 
 // 判断是否有有效数据用于显示空状态
@@ -93,9 +92,6 @@ const initChart = () => {
   if (uplotInstance) return;
   
   chartContainer.value.innerHTML = '';
-
-  // 调试日志
-  console.log('[FundChart] initChart - baseline:', props.baseline, 'changePercent:', props.changePercent, 'color:', color.value);
 
   try {
     uplotInstance = new uPlot({
@@ -241,7 +237,6 @@ const updateColor = () => {
   if (!uplotInstance) return;
 
   const newColor = getTrendColor();
-  console.log('[FundChart] updateColor - newColor:', newColor, 'baseline:', props.baseline);
   try {
     // uPlot setSeries API requires series options
     uplotInstance.setSeries(1, { stroke: newColor });
@@ -271,8 +266,8 @@ watch(() => props.data, (newData) => {
   updateData();
 }, { deep: true, flush: 'post' });
 
-// 监听 changePercent 变化以更新颜色
-watch(() => props.changePercent, () => {
+// 监听 trend 变化以更新颜色
+watch(() => props.trend, () => {
   if (uplotInstance) {
     updateColor();
   }
@@ -281,7 +276,6 @@ watch(() => props.changePercent, () => {
 // 监听 baseline 变化以重绘基准线
 watch(() => props.baseline, () => {
   if (uplotInstance) {
-    console.log('[FundChart] baseline changed:', props.baseline);
     uplotInstance.redraw();
   }
 });
