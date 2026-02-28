@@ -106,28 +106,36 @@ def _calculate_estimate_change(unit_net: float | None, estimate_net: float | Non
 
 
 def build_fund_response(data: dict, source: str = "", is_holding: bool = False) -> dict:
-    """构建基金响应数据"""
+    """构建基金响应数据
+    
+    使用 model_validate 进行数据验证，确保数据完整性
+    """
     unit_net = data.get("unit_net_value")
     estimate_net = data.get("estimated_net_value")
     estimate_change = _calculate_estimate_change(unit_net, estimate_net)
 
-    # 使用 model_construct 绕过 mypy 对 alias 字段的类型检查
-    return FundResponse.model_construct(
-        code=data.get("fund_code", ""),
-        name=data.get("name", ""),
-        type=data.get("type"),
-        netValue=data.get("unit_net_value"),
-        netValueDate=data.get("net_value_date"),
-        prevNetValue=data.get("prev_net_value"),
-        prevNetValueDate=data.get("prev_net_value_date"),
-        estimateValue=data.get("estimated_net_value"),
-        estimateChangePercent=data.get("estimated_growth_rate"),
-        estimateTime=data.get("estimate_time"),
-        estimateChange=estimate_change,
-        source=source,
-        isHolding=is_holding,
-        hasRealTimeEstimate=data.get("has_real_time_estimate", True),
-    ).model_dump()
+    # 使用 model_validate 进行验证 (修复: 不再绕过验证)
+    # 数据使用 alias 名称 (snake_case) 以匹配字段定义
+    validated = FundResponse.model_validate({
+        "fund_code": data.get("fund_code", ""),
+        "name": data.get("name", ""),
+        "type": data.get("type"),
+        "unit_net_value": data.get("unit_net_value"),
+        "net_value_date": data.get("net_value_date"),
+        "prev_net_value": data.get("prev_net_value"),
+        "prev_net_value_date": data.get("prev_net_value_date"),
+        "estimated_net_value": data.get("estimated_net_value"),
+        "estimated_growth_rate": data.get("estimated_growth_rate"),
+        "estimate_time": data.get("estimate_time"),
+        "has_real_time_estimate": data.get("has_real_time_estimate", True),
+    })
+
+    # 设置计算属性和额外字段
+    validated.estimateChange = estimate_change
+    validated.source = source
+    validated.isHolding = is_holding
+
+    return validated.model_dump()
 
 
 @router.get(
@@ -260,22 +268,25 @@ async def get_fund_detail(
     # 检查是否持仓
     is_holding = _check_is_holding(code)
 
-    # 使用 model_construct 绕过 mypy 对 alias 字段的类型检查
-    resp = FundDetailResponse.model_construct(
-        code=data.get("fund_code", ""),
-        name=data.get("name", ""),
-        type=data.get("type"),
-        netValue=data.get("unit_net_value"),
-        netValueDate=data.get("net_value_date"),
-        estimateValue=data.get("estimated_net_value"),
-        estimateChangePercent=data.get("estimated_growth_rate"),
-        estimateTime=data.get("estimate_time"),
-        estimateChange=estimate_change,
-        source=result.source,
-        isHolding=is_holding,
-        hasRealTimeEstimate=data.get("has_real_time_estimate", True),
-    )
-    return resp.model_dump()
+    # 使用 model_validate 进行验证
+    validated = FundDetailResponse.model_validate({
+        "fund_code": data.get("fund_code", ""),
+        "name": data.get("name", ""),
+        "type": data.get("type"),
+        "unit_net_value": data.get("unit_net_value"),
+        "net_value_date": data.get("net_value_date"),
+        "estimated_net_value": data.get("estimated_net_value"),
+        "estimated_growth_rate": data.get("estimated_growth_rate"),
+        "estimate_time": data.get("estimate_time"),
+        "has_real_time_estimate": data.get("has_real_time_estimate", True),
+    })
+
+    # 设置计算属性和额外字段
+    validated.estimateChange = estimate_change
+    validated.source = result.source
+    validated.isHolding = is_holding
+
+    return validated.model_dump()
 
 
 @router.get(
@@ -323,20 +334,24 @@ async def get_fund_estimate(
     # 检查是否持仓
     is_holding = _check_is_holding(code)
 
-    # 使用 model_construct 绕过 mypy 对 alias 字段的类型检查
-    return FundEstimateResponse.model_construct(
-        code=data.get("fund_code", ""),
-        name=data.get("name", ""),
-        type=data.get("type"),
-        estimateValue=data.get("estimated_net_value"),
-        estimateChangePercent=data.get("estimated_growth_rate"),
-        estimateTime=data.get("estimate_time"),
-        netValue=data.get("unit_net_value"),
-        netValueDate=data.get("net_value_date"),
-        estimateChange=estimate_change,
-        isHolding=is_holding,
-        hasRealTimeEstimate=data.get("has_real_time_estimate", True),
-    ).model_dump()
+    # 使用 model_validate 进行验证
+    validated = FundEstimateResponse.model_validate({
+        "fund_code": data.get("fund_code", ""),
+        "name": data.get("name", ""),
+        "type": data.get("type"),
+        "unit_net_value": data.get("unit_net_value"),
+        "net_value_date": data.get("net_value_date"),
+        "estimated_net_value": data.get("estimated_net_value"),
+        "estimated_growth_rate": data.get("estimated_growth_rate"),
+        "estimate_time": data.get("estimate_time"),
+        "has_real_time_estimate": data.get("has_real_time_estimate", True),
+    })
+
+    # 设置计算属性和额外字段
+    validated.estimateChange = estimate_change
+    validated.isHolding = is_holding
+
+    return validated.model_dump()
 
 
 @router.get(

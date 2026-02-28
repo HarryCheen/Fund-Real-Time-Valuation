@@ -27,14 +27,8 @@ Usage:
     manager.add_commodity(Commodity(symbol="XAUUSD", name="国际金价", source="alpha_vantage"))
 """
 
-from .base import AppConfigLoader, BaseConfigLoader
-from .manager import (
-    CommodityConfigLoader,
-    ConfigManager,
-    FundConfigLoader,
-    get_config_manager,
-    reset_config_manager,
-)
+from .base import AppConfigLoader
+from .manager import ConfigManager, get_config_manager, reset_config_manager
 from .models import (
     AppConfig,
     Commodity,
@@ -59,10 +53,7 @@ __all__ = [
     "DataSource",
     "DataProvider",
     # 配置加载器
-    "BaseConfigLoader",
     "AppConfigLoader",
-    "FundConfigLoader",
-    "CommodityConfigLoader",
     # 配置管理器
     "ConfigManager",
     "get_config_manager",
