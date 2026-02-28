@@ -401,6 +401,8 @@ export const useFundStore = defineStore('funds', () => {
     // State
     funds,
     loading,
+    loadingProgress,
+    loadingTotal,
     error,
     lastUpdated,
     refreshInterval,

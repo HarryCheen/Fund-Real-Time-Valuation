@@ -149,7 +149,6 @@ const showFundList = computed(() => hasFunds.value && !hasError.value);
 
 async function handleRemoveFund(code: string) {
   removingFundCode.value = code;
-  removingFundCode.value = code;
   showConfirmDialog.value = true;
 }
 
