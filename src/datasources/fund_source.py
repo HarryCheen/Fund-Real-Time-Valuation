@@ -485,6 +485,9 @@ class FundDataSource(DataSource):
                     if basic_info:
                         fund_type = basic_info.get("type", "") or ""
 
+                    # 优先使用 estimate_time，如果为空则回退到 date
+                    estimate_time = cached_daily.estimate_time or cached_daily.date
+
                     # 构建返回数据格式
                     result_data = {
                         "fund_code": fund_code,
@@ -494,7 +497,7 @@ class FundDataSource(DataSource):
                         "unit_net_value": cached_daily.unit_net_value,
                         "estimated_net_value": cached_daily.estimated_value,
                         "estimated_growth_rate": cached_daily.change_rate,
-                        "estimate_time": cached_daily.fetched_at or cached_daily.date,
+                        "estimate_time": estimate_time,
                         "has_real_time_estimate": cached_daily.estimated_value is not None,
                     }
                     return DataSourceResult(
@@ -1986,6 +1989,9 @@ class Fund123DataSource(DataSource):
                     # 获取上一交易日净值（用于折线图基准线）
                     prev_net_value, prev_net_value_date = await self._get_prev_net_value(fund_code)
 
+                    # 优先使用 estimate_time，如果为空则回退到 date
+                    estimate_time = cached_daily.estimate_time or cached_daily.date
+
                     # 构建返回数据格式
                     result_data = {
                         "fund_code": fund_code,
@@ -1997,7 +2003,7 @@ class Fund123DataSource(DataSource):
                         "prev_net_value_date": prev_net_value_date,
                         "estimated_net_value": cached_daily.estimated_value,
                         "estimated_growth_rate": cached_daily.change_rate,
-                        "estimate_time": cached_daily.fetched_at or cached_daily.date,
+                        "estimate_time": estimate_time,
                         "has_real_time_estimate": cached_daily.estimated_value is not None,
                         "from_cache": "database",
                     }

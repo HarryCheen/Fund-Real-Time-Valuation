@@ -129,6 +129,7 @@ class FundDailyRecord:
     accumulated_net_value: float | None = None  # 累计净值
     estimated_value: float | None = None  # 估算净值
     change_rate: float | None = None  # 日增长率
+    estimate_time: str = ""  # 估值时间 (YYYY-MM-DD HH:MM 格式，来自 gztime)
     fetched_at: str = ""  # 抓取时间
 
 
@@ -291,6 +292,7 @@ class DatabaseManager:
                     accumulated_net_value REAL,
                     estimated_value REAL,
                     change_rate REAL,
+                    estimate_time TEXT,
                     fetched_at TEXT,
                     UNIQUE(fund_code, date)
                 )
@@ -418,6 +420,14 @@ class DatabaseManager:
             # 添加 date 列（如果不存在）
             if "date" not in intraday_columns:
                 cursor.execute("ALTER TABLE fund_intraday_cache ADD COLUMN date TEXT DEFAULT ''")
+
+            # 检查 fund_daily_cache 表是否有 estimate_time 列
+            cursor.execute("PRAGMA table_info(fund_daily_cache)")
+            daily_columns = [row[1] for row in cursor.fetchall()]
+
+            # 添加 estimate_time 列（如果不存在）
+            if "estimate_time" not in daily_columns:
+                cursor.execute("ALTER TABLE fund_daily_cache ADD COLUMN estimate_time TEXT DEFAULT ''")
 
         except Exception as e:
             logger.warning(f"数据库迁移警告: {e}")
@@ -1270,6 +1280,7 @@ class FundDailyCacheDAO:
         accumulated_net_value: float | None = None,
         estimated_value: float | None = None,
         change_rate: float | None = None,
+        estimate_time: str | None = None,
     ) -> bool:
         """
         保存基金每日数据
@@ -1281,6 +1292,7 @@ class FundDailyCacheDAO:
             accumulated_net_value: 累计净值
             estimated_value: 估算净值
             change_rate: 日增长率
+            estimate_time: 估值时间 (YYYY-MM-DD HH:MM 格式，来自 gztime)
 
         Returns:
             bool: 是否保存成功
@@ -1293,8 +1305,8 @@ class FundDailyCacheDAO:
                     """
                     INSERT OR REPLACE INTO fund_daily_cache
                     (fund_code, date, unit_net_value, accumulated_net_value,
-                     estimated_value, change_rate, fetched_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                     estimated_value, change_rate, estimate_time, fetched_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         fund_code,
@@ -1303,6 +1315,7 @@ class FundDailyCacheDAO:
                         accumulated_net_value,
                         estimated_value,
                         change_rate,
+                        estimate_time or "",
                         fetched_at,
                     ),
                 )
@@ -1313,7 +1326,7 @@ class FundDailyCacheDAO:
                     """
                     UPDATE fund_daily_cache
                     SET unit_net_value = ?, accumulated_net_value = ?,
-                        estimated_value = ?, change_rate = ?, fetched_at = ?
+                        estimated_value = ?, change_rate = ?, estimate_time = ?, fetched_at = ?
                     WHERE fund_code = ? AND date = ?
                 """,
                     (
@@ -1321,6 +1334,7 @@ class FundDailyCacheDAO:
                         accumulated_net_value,
                         estimated_value,
                         change_rate,
+                        estimate_time or "",
                         fetched_at,
                         fund_code,
                         date,
@@ -1335,7 +1349,8 @@ class FundDailyCacheDAO:
         Args:
             fund_code: 基金代码
             data: 基金数据字典，包含 net_value_date, unit_net_value,
-                  accumulated_net_value, estimated_net_value, estimated_growth_rate
+                  accumulated_net_value, estimated_net_value, estimated_growth_rate,
+                  estimate_time (估值时间，来自 gztime)
 
         Returns:
             bool: 是否保存成功
@@ -1347,6 +1362,9 @@ class FundDailyCacheDAO:
         if not date:
             return False
 
+        # 获取估值时间（来自 API 的 gztime 字段）
+        estimate_time = data.get("estimate_time", "")
+
         return self.save_daily(
             fund_code=fund_code,
             date=date,
@@ -1354,6 +1372,7 @@ class FundDailyCacheDAO:
             accumulated_net_value=data.get("accumulated_net_value"),
             estimated_value=data.get("estimated_net_value"),
             change_rate=data.get("estimated_growth_rate") or data.get("change_rate"),
+            estimate_time=estimate_time,
         )
 
     def get_daily(self, fund_code: str, date: str) -> FundDailyRecord | None:
