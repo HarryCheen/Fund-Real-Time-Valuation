@@ -1,7 +1,5 @@
 <template>
   <div class="funds-view">
-    <!-- Market Overview -->
-    <MarketOverview :overview="overviewData" :loading="fundStore.loading" />
 
     <!-- Loading Progress Bar -->
     <div v-if="fundStore.loading && fundStore.loadingProgress > 0 && fundStore.loadingProgress < 100" class="loading-progress">
@@ -143,25 +141,8 @@ const showSkeleton = computed(() => isLoading.value && !hasFunds.value);
 // 模板条件简化：显示基金列表
 const showFundList = computed(() => hasFunds.value && !hasError.value);
 
-const overviewData = computed<Overview | null>(() => {
-  if (fundStore.funds.length === 0) return null;
-
-  const totalValue = fundStore.funds.reduce((sum, f) => {
-    return sum + (f.estimateValue || f.netValue || 0);
-  }, 0);
-
-  const avgChange = fundStore.averageChange;
-
-  return {
-    totalValue,
-    totalChange: totalValue * (avgChange / 100),
-    totalChangePercent: avgChange,
-    fundCount: fundStore.funds.length,
-    lastUpdated: fundStore.lastUpdated || '',
-  };
-});
-
 async function handleRemoveFund(code: string) {
+  removingFundCode.value = code;
   removingFundCode.value = code;
   showConfirmDialog.value = true;
 }

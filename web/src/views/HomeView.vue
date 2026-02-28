@@ -13,22 +13,7 @@ const indexStore = useIndexStore();
 // 计算属性
 const hasFunds = computed(() => fundStore.funds.length > 0);
 
-const overviewData = computed(() => {
-  if (fundStore.funds.length === 0) return null;
-  
-  const totalValue = fundStore.funds.reduce((sum, f) => {
-    return sum + (f.estimateValue || f.netValue || 0);
-  }, 0);
-  
-  const avgChange = fundStore.averageChange ?? 0;
-  
-  return {
-    totalValue,
-    totalChange: totalValue * (avgChange / 100),
-    totalChangePercent: avgChange,
-    fundCount: fundStore.funds.length,
-  };
-});
+
 
 const topGainers = computed(() => fundStore.topGainers.slice(0, 3));
 const topLosers = computed(() => fundStore.topLosers.slice(0, 3));
@@ -91,32 +76,8 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Portfolio Overview -->
-    <div v-if="hasFunds && overviewData" class="overview-section">
-      <h2 class="section-title">持仓概览</h2>
-      <div class="overview-grid">
-        <div class="overview-card total-value">
-          <span class="card-label">持仓总值</span>
-          <span class="card-value">¥{{ formatValue(overviewData.totalValue) }}</span>
-        </div>
-        <div class="overview-card" :class="overviewData.totalChangePercent >= 0 ? 'rising' : 'falling'">
-          <span class="card-label">今日涨跌</span>
-          <div class="card-change">
-            <svg v-if="overviewData.totalChangePercent > 0" viewBox="0 0 24 24" fill="none">
-              <path d="M12 19V5M5 12L12 5L19 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            <svg v-else-if="overviewData.totalChangePercent < 0" viewBox="0 0 24 24" fill="none">
-              <path d="M12 5V19M19 12L12 19L5 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            <span class="card-value">{{ formatPercent(overviewData.totalChangePercent) }}</span>
-          </div>
-        </div>
-        <div class="overview-card">
-          <span class="card-label">基金数量</span>
-          <span class="card-value">{{ overviewData.fundCount }} 只</span>
-        </div>
-      </div>
-    </div>
+
+    <!-- Quick Actions -->
 
     <!-- Quick Actions -->
     <div class="actions-section">
