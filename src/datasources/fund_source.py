@@ -177,7 +177,8 @@ def get_full_fund_info(fund_code: str) -> dict[str, Any] | None:
                     elif "基金简称" in item:
                         info_dict["short_name"] = value
                     elif "基金类型" in item:
-                        info_dict["type"] = value.split("-")[0] if "-" in value else value
+                        # 保留完整的 akshare 格式：主类型-子类型
+                        info_dict["type"] = value
                     elif "基金管理人" in item:
                         info_dict["manager"] = value
                     elif "基金托管人" in item:
@@ -383,7 +384,7 @@ def get_fund_basic_info(fund_code: str) -> tuple[str, str] | None:
         except Exception as e:
             logger.debug(f"获取基金简称失败: {fund_code}, error: {e}")
 
-        # 获取基金类型
+        # 获取基金类型（保留完整的 akshare 格式：主类型-子类型）
         fund_type = ""
         try:
             info_df = ak.fund_individual_basic_info_xq(symbol=fund_code)
@@ -391,8 +392,7 @@ def get_fund_basic_info(fund_code: str) -> tuple[str, str] | None:
                 type_row = info_df[info_df["item"] == "基金类型"]
                 if not type_row.empty:
                     fund_type = str(type_row.iloc[0]["value"]).strip()
-                    if "-" in fund_type:
-                        fund_type = fund_type.split("-")[0]
+                    # 保留完整格式，如 "QDII-商品"、"股票型-增强指数"
         except Exception as e:
             logger.debug(f"获取基金类型失败: {fund_code}, error: {e}")
 
