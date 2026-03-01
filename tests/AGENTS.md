@@ -5,18 +5,37 @@
 
 ## OVERVIEW
 
-pytest test suite for GUI, datasources, and database components.
+pytest test suite for datasources, database, API, and utility components.
 
 ## WHERE TO LOOK
 
 | Task | Location | Notes |
 |------|----------|-------|
 | Test fixtures | `conftest.py` | Path setup, common fixtures |
-| GUI tests | `test_gui.py` | Flet GUI component tests |
 | Datasource tests | `test_datasources.py` | Data source tests |
 | Database tests | `test_database.py` | SQLite CRUD tests |
-| Crypto tests | `test_crypto_source.py` | Crypto source tests |
-| AKShare tests | `test_akshare_sector.py`, `test_akshare_commodity.py` | AKShare-specific tests |
+| Manager tests | `test_manager.py` | Data source manager tests |
+| Gateway tests | `test_gateway.py`, `test_gateway_models.py` | Data gateway tests |
+| Hot backup tests | `test_hot_backup.py` | Hot backup tests |
+| Health tests | `test_datasource_health.py` | Health check tests |
+| Cache tests | `test_cache.py`, `test_dual_cache.py`, `test_cache_strategy.py` | Caching tests |
+| Cache cleaner tests | `test_cache_cleaner.py` | Cache cleanup tests |
+| Cache warmer tests | `test_cache_warmer.py` | Cache preload tests |
+| Fund tests | `test_qdii_fund.py` | QDII fund tests |
+| Bond tests | `test_bond_source.py` | Bond source tests |
+| Stock tests | `test_stock_source.py` | Stock source tests |
+| Index tests | `test_index_source.py` | Index source tests |
+| Commodity tests | `test_akshare_commodity.py`, `test_commodity_repo.py` | Commodity tests |
+| Sector tests | `test_akshare_sector.py` | Sector tests |
+| Sentiment tests | `test_akshare_sentiment.py` | Sentiment tests |
+| Calendar tests | `test_trading_calendar.py` | Trading calendar tests |
+| Config tests | `test_config.py`, `test_commodities_config.py` | Configuration tests |
+| API tests | `test_api_models.py`, `test_api_routes.py` | API tests |
+| Utility tests | `test_colors.py`, `test_export.py`, `test_log_buffer.py` | Utility tests |
+| Unified models tests | `test_unified_models.py` | Unified models tests |
+| Circuit breaker tests | `test_circuit_breaker.py` | Circuit breaker tests |
+| Aggregator tests | `test_aggregator.py` | Aggregator tests |
+| Datasource base tests | `test_datasource_base.py` | Base class tests |
 
 ## CONVENTIONS
 
