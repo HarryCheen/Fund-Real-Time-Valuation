@@ -172,6 +172,11 @@ onMounted(async () => {
 
   // 加载每个基金的分时数据
   for (const fund of fundStore.funds) {
+    // 跳过无实时估值的基金（如 QDII），不请求分时数据
+    if (fund.hasRealTimeEstimate === false) {
+      continue;
+    }
+
     // 尝试获取当天的日内数据
     const intraday = await fundStore.fetchIntraday(fund.code, true);
     
