@@ -224,6 +224,46 @@ def get_full_fund_info(fund_code: str) -> dict[str, Any] | None:
         return None
 
 
+def _get_fund_type_from_fund_name_em(fund_code: str) -> str | None:
+    """
+    从 akshare fund_name_em API 获取基金类型
+
+    该 API 返回完整的基金类型字符串，包含子类型信息。
+    例如："指数型-股票"、"股票型"、"混合型-偏股" 等。
+
+    Args:
+        fund_code: 基金代码
+
+    Returns:
+        基金类型字符串（含子类型后缀），获取失败返回 None
+    """
+    try:
+        import akshare as ak
+
+        df = ak.fund_name_em()
+        if df is None or df.empty:
+            return None
+
+        # 查找对应基金代码的记录
+        if "基金代码" not in df.columns or "基金类型" not in df.columns:
+            logger.debug(f"fund_name_em 返回数据格式不正确: {df.columns.tolist()}")
+            return None
+
+        fund_rows = df[df["基金代码"] == fund_code]
+        if fund_rows.empty:
+            return None
+
+        fund_type = str(fund_rows.iloc[0].get("基金类型", "")).strip()
+        if fund_type and fund_type != "nan":
+            logger.debug(f"从 fund_name_em 获取基金类型: {fund_code} -> {fund_type}")
+            return fund_type
+
+        return None
+    except Exception as e:
+        logger.debug(f"fund_name_em 获取基金类型失败: {fund_code}, error: {e}")
+        return None
+
+
 def _infer_fund_type_from_name(fund_name: str) -> str:
     """
     从基金名称推断基金类型
@@ -256,7 +296,10 @@ def _infer_fund_type_from_name(fund_name: str) -> str:
         return "债券型"
     if "混合" in name:
         return "混合型"
-    if "股票" in name or "指数" in name:
+    # 指数型基金单独处理，保持与 akshare 返回格式一致
+    if "指数" in name:
+        return "指数型"
+    if "股票" in name:
         return "股票型"
 
     return ""
@@ -546,18 +589,25 @@ def get_fund_basic_info(fund_code: str) -> tuple[str, str] | None:
             logger.debug(f"获取基金简称失败: {fund_code}, error: {e}")
 
         # 获取基金类型（保留完整的 akshare 格式：主类型-子类型）
+        # 优先级：fund_individual_basic_info_xq > fund_name_em > 名称推断
         fund_type = ""
+        
+        # 方案1: fund_individual_basic_info_xq (最精确)
         try:
             info_df = ak.fund_individual_basic_info_xq(symbol=fund_code)
             if info_df is not None and not info_df.empty:
                 type_row = info_df[info_df["item"] == "基金类型"]
                 if not type_row.empty:
                     fund_type = str(type_row.iloc[0]["value"]).strip()
-                    # 保留完整格式，如 "QDII-商品"、"股票型-增强指数"
+                    # 保留完整格式，如 "QDII-商品"、"股票型-增强指数"、"指数型-股票"
         except Exception as e:
             logger.debug(f"获取基金类型失败: {fund_code}, error: {e}")
 
-        # 备选方案：从基金名称中识别类型
+        # 方案2: fund_name_em (备用，保留子类型)
+        if not fund_type:
+            fund_type = _get_fund_type_from_fund_name_em(fund_code) or ""
+
+        # 方案3: 从基金名称中识别类型（最后回退）
         if not fund_type and fund_name:
             fund_type = _infer_fund_type_from_name(fund_name)
 
