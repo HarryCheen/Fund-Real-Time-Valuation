@@ -1045,6 +1045,431 @@ REST API specification for the Fund Real-Time Valuation application. Base URL: `
 
 ---
 
+### 8. Bonds API
+
+#### 8.1 Get Bond List
+
+| Item | Value |
+|------|-------|
+| Endpoint | `GET /api/bonds` |
+| Summary | 获取债券列表 |
+| Description | 获取可转债或中国债券列表 |
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| bond_type | string | No | 债券类型: cbond=可转债, bond_china=中国债券 (default: cbond) |
+
+**Response**
+
+```json
+{
+  "bonds": [
+    {
+      "code": "110001",
+      "name": "邯钢转债",
+      "price": 120.50,
+      "change": 1.20,
+      "change_pct": 1.01,
+      "volume": 10000,
+      "amount": 1205000.00
+    }
+  ],
+  "total": 1,
+  "source": "sina"
+}
+```
+
+---
+
+#### 8.2 Get Bond Detail
+
+| Item | Value |
+|------|-------|
+| Endpoint | `GET /api/bonds/{bond_code}` |
+| Summary | 获取债券详情 |
+| Description | 根据债券代码获取单个债券的详细信息 |
+
+**Path Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| bond_code | string | Yes | Bond code |
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| market | string | No | 市场: sh=上海, sz=深圳 |
+
+**Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "code": "110001",
+    "name": "邯钢转债",
+    "price": 120.50,
+    "change": 1.20,
+    "change_pct": 1.01,
+    "volume": 10000,
+    "amount": 1205000.00,
+    "pre_close": 119.30,
+    "high": 121.00,
+    "low": 119.50,
+    "bid": 120.40,
+    "ask": 120.60
+  },
+  "source": "sina_bond",
+  "timestamp": 1708454400.0
+}
+```
+
+---
+
+#### 8.3 Search Convertible Bonds
+
+| Item | Value |
+|------|-------|
+| Endpoint | `GET /api/bonds/search/cbonds` |
+| Summary | 搜索可转债 |
+| Description | 根据关键词搜索可转债 |
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| keyword | string | No | 搜索关键词（代码或名称） |
+| limit | int | No | 返回数量限制 (default: 20, max: 100) |
+
+**Response**
+
+```json
+{
+  "keyword": "邯",
+  "bonds": [
+    {
+      "code": "110001",
+      "name": "邯钢转债",
+      "price": 120.50,
+      "change": 1.20,
+      "change_pct": 1.01
+    }
+  ],
+  "total": 1
+}
+```
+
+---
+
+### 9. Stocks API
+
+#### 9.1 Get Stocks Quote
+
+| Item | Value |
+|------|-------|
+| Endpoint | `GET /api/stocks` |
+| Summary | 获取股票行情 |
+| Description | 批量获取 A 股、港股、美股行情 |
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| codes | string | Yes | 股票代码，多个用逗号分隔，如: sh600000,sz000001,AAPL |
+
+**Response**
+
+```json
+[
+  {
+    "code": "SH600000",
+    "name": "浦发银行",
+    "price": 10.50,
+    "change": 0.15,
+    "change_pct": 1.45,
+    "open": 10.35,
+    "high": 10.60,
+    "low": 10.30,
+    "volume": "12345678",
+    "amount": "129567890.00",
+    "pre_close": 10.35,
+    "timestamp": "2026-02-20T10:30:00"
+  }
+]
+```
+
+---
+
+#### 9.2 Get Single Stock Quote
+
+| Item | Value |
+|------|-------|
+| Endpoint | `GET /api/stocks/{code}` |
+| Summary | 获取单个股票行情 |
+| Description | 根据股票代码获取单个股票的实时行情 |
+
+**Path Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| code | string | Yes | Stock code (e.g., sh600000, AAPL) |
+
+**Response**
+
+```json
+{
+  "code": "SH600000",
+  "name": "浦发银行",
+  "price": 10.50,
+  "change": 0.15,
+  "change_pct": 1.45,
+  "open": 10.35,
+  "high": 10.60,
+  "low": 10.30,
+  "volume": "12345678",
+  "amount": "129567890.00",
+  "pre_close": 10.35,
+  "timestamp": "2026-02-20T10:30:00"
+}
+```
+
+---
+
+### 10. Holidays API
+
+#### 10.1 Get Holidays List
+
+| Item | Value |
+|------|-------|
+| Endpoint | `GET /api/holidays` |
+| Summary | 获取节假日列表 |
+| Description | 获取所有或指定市场的节假日列表 |
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| market | string | No | 市场标识 (e.g., china, usa) |
+| year | int | No | 年份 |
+
+**Response**
+
+```json
+[
+  {
+    "id": 1,
+    "market": "china",
+    "holiday_date": "2026-01-01",
+    "holiday_name": "元旦"
+  },
+  {
+    "id": 2,
+    "market": "china",
+    "holiday_date": "2026-02-17",
+    "holiday_name": "春节"
+  }
+]
+```
+
+---
+
+#### 10.2 Get Holidays by Market
+
+| Item | Value |
+|------|-------|
+| Endpoint | `GET /api/holidays/{market}` |
+| Summary | 获取指定市场节假日 |
+| Description | 获取指定市场的节假日列表 |
+
+**Path Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| market | string | Yes | 市场标识 (e.g., china, usa, hk) |
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| year | int | No | 年份 |
+
+**Response**
+
+```json
+[
+  {
+    "id": 1,
+    "market": "china",
+    "holiday_date": "2026-01-01",
+    "holiday_name": "元旦"
+  }
+]
+```
+
+---
+
+### 11. WebSocket API
+
+#### 11.1 Real-time Data Push
+
+| Item | Value |
+|------|-------|
+| Endpoint | `WS /ws/realtime` |
+| Summary | 实时数据推送 |
+| Description | WebSocket 连接用于接收实时数据推送 |
+
+**Client Actions**
+
+| Action | Description |
+|--------|-------------|
+| subscribe | 订阅数据频道 |
+| unsubscribe | 取消订阅 |
+| ping | 心跳检测 |
+| get_subscriptions | 获取当前订阅列表 |
+
+**Subscribe Example**
+
+```json
+{
+  "action": "subscribe",
+  "data": ["funds", "commodities", "indices"]
+}
+```
+
+**Server Messages**
+
+```json
+{
+  "type": "fund_update",
+  "data": {
+    "fund_code": "161039",
+    "estimated_net_value": 1.2360,
+    "estimated_growth_rate": 0.32
+  }
+}
+```
+
+---
+
+#### 11.2 Get WebSocket Status
+
+| Item | Value |
+|------|-------|
+| Endpoint | `GET /ws/manager/status` |
+| Summary | 获取 WebSocket 状态 |
+| Description | 获取当前 WebSocket 连接和订阅状态 |
+
+**Response**
+
+```json
+{
+  "connections": 5,
+  "subscriptions": {
+    "funds": 3,
+    "commodities": 2,
+    "indices": 1
+  },
+  "clients": [
+    {
+      "client_id": "abc123",
+      "connected_at": "2026-02-20T10:00:00Z",
+      "subscriptions": ["funds", "indices"]
+    }
+  ]
+}
+```
+
+---
+
+#### 11.3 Broadcast Message
+
+| Item | Value |
+|------|-------|
+| Endpoint | `POST /ws/manager/broadcast` |
+| Summary | 广播消息 |
+| Description | 向指定订阅频道广播消息 |
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| subscription | string | Yes | 订阅频道名称 |
+| message_type | string | Yes | 消息类型 |
+| data | dict | Yes | 消息数据 |
+
+**Response**
+
+```json
+{
+  "success": true,
+  "sent_count": 3,
+  "subscription": "funds",
+  "message_type": "fund_update"
+}
+```
+
+---
+
+### 12. Sectors API
+
+#### 12.1 Get Sector List
+
+| Item | Value |
+|------|-------|
+| Endpoint | `GET /api/sectors` |
+| Summary | 获取行业板块 |
+| Description | 获取所有行业板块的实时行情 |
+
+**Response**
+
+```json
+{
+  "sectors": [
+    {
+      "code": "BK0477",
+      "name": "有色金属",
+      "change_pct": 1.25,
+      "amount": 1234567890.00,
+      "leading_stock": {
+        "code": "600547",
+        "name": "山东黄金",
+        "change_pct": 5.23
+      }
+    }
+  ],
+  "timestamp": "2026-02-20T10:30:00Z"
+}
+```
+
+---
+
+### 13. Sentiment API
+
+#### 13.1 Get Sentiment Data
+
+| Item | Value |
+|------|-------|
+| Endpoint | `GET /api/sentiment` |
+| Summary | 获取舆情数据 |
+| Description | 获取市场舆情和情绪指标 |
+
+---
+
+### 14. News API
+
+#### 14.1 Get News List
+
+| Item | Value |
+|------|-------|
+| Endpoint | `GET /api/news` |
+| Summary | 获取财经新闻 |
+| Description | 获取实时财经新闻列表 |
+
+---
+
 ## Error Codes
 
 | Code | Description |
@@ -1061,6 +1486,7 @@ REST API specification for the Fund Real-Time Valuation application. Base URL: `
 | Version | Date | Description |
 |---------|------|-------------|
 | 1.0.0 | 2026-02-20 | Initial API specification |
+| 1.1.0 | 2026-03-01 | Added Bonds, Stocks, Holidays, WebSocket management APIs |
 
 ---
 
