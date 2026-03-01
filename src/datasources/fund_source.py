@@ -325,8 +325,8 @@ def _has_real_time_estimate(fund_type: str, fund_name: str) -> bool:
     if not fund_type:
         return False
 
-    # QDII 基金无实时估值
-    if fund_type == "QDII":
+    # QDII 基金无实时估值（包括 QDII-商品、QDII-股票等子类型）
+    if fund_type.startswith("QDII"):
         return False
 
     # FOF 基金需要进一步判断是否投资海外

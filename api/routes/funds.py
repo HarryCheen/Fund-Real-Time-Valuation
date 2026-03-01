@@ -86,8 +86,8 @@ def _is_qdii_fund(code: str) -> bool:
         fund_type = (basic_info.get("type") or "").upper()
         fund_name = basic_info.get("name") or ""
 
-        # QDII 基金不支持日内分时数据（精确匹配类型）
-        if fund_type == "QDII":
+        # QDII 基金不支持日内分时数据（包括 QDII-商品、QDII-股票等子类型）
+        if fund_type.startswith("QDII"):
             return True
 
         # FOF 基金需要进一步判断是否投资海外（精确匹配类型）
