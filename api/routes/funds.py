@@ -7,7 +7,8 @@ import asyncio
 import logging
 from datetime import datetime
 from functools import lru_cache
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING
+from typing_extensions import TypedDict
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 

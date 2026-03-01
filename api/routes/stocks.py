@@ -6,7 +6,7 @@
 import logging
 from datetime import datetime
 from functools import cache
-from typing import TypedDict
+from typing_extensions import TypedDict
 
 from fastapi import APIRouter, HTTPException, Query
 

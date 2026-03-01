@@ -4,7 +4,7 @@
 """
 
 from datetime import datetime, timezone
-from typing import TypedDict
+from typing_extensions import TypedDict
 
 from fastapi import APIRouter, Depends, HTTPException
 

@@ -6,7 +6,8 @@
 import logging
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, TypedDict
+from typing import Any
+from typing_extensions import TypedDict
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 

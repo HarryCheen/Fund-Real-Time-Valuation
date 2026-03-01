@@ -4,7 +4,8 @@
 """
 
 from datetime import datetime, time
-from typing import Any, TypedDict
+from typing import Any
+from typing_extensions import TypedDict
 
 import pytz
 from fastapi import APIRouter, Depends
