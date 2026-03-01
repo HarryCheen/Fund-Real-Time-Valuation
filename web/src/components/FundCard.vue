@@ -38,7 +38,12 @@
                 <path v-else d="M12 5v14M5 12h14" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
-            <span class="fund-type">{{ fund.type || '其他' }}</span>
+            <span
+              class="fund-type"
+              :class="{ 'fund-type--qdii': fund.type?.startsWith('QDII') }"
+            >
+              {{ fund.type || '其他' }}
+            </span>
           </div>
         </div>
         <div class="fund-name-row">
@@ -87,8 +92,8 @@
       </div>
 
       <div class="card-footer">
-        <span class="update-time">
-          {{ fund.hasRealTimeEstimate === false ? '净值日期' : '更新' }}: {{ formatTime(fund.hasRealTimeEstimate === false ? fund.netValueDate : fund.estimateTime) }}
+        <span v-if="fund.hasRealTimeEstimate !== false" class="update-time">
+          更新: {{ formatTime(fund.estimateTime) }}
         </span>
         <span class="source" v-if="fund.source">{{ fund.source }}</span>
       </div>
@@ -199,7 +204,7 @@ function formatPercent(value: number): string {
   return `${sign}${value.toFixed(2)}%`;
 }
 
-function formatTime(dateStr: string): string {
+function formatTime(dateStr: string | undefined): string {
   if (!dateStr) return '--';
   try {
     const date = new Date(dateStr);
@@ -222,7 +227,7 @@ function formatTime(dateStr: string): string {
   }
 }
 
-function formatNetValueDate(dateStr: string): string {
+function formatNetValueDate(dateStr: string | undefined): string {
   if (!dateStr) return '';
   try {
     const date = new Date(dateStr);
@@ -344,6 +349,11 @@ function formatNetValueDate(dateStr: string): string {
   border-radius: var(--radius-full);
   color: var(--color-text-secondary);
   flex-shrink: 0;
+
+  &--qdii {
+    background: rgba(139, 92, 246, 0.15);
+    color: #8b5cf6;
+  }
 }
 
 .action-btn {
