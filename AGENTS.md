@@ -121,8 +121,6 @@ from api.routes import funds
 
 ## 架构
 
-## 架构
-
 ```
 api/           # FastAPI 路由
   routes/      # 端点处理器
@@ -210,15 +208,31 @@ pnpm run dev:web
 | `/api/funds` | GET | 基金列表 |
 | `/api/funds/{code}` | GET | 基金详情 |
 | `/api/funds/{code}/estimate` | GET | 基金估值 |
+| `/api/funds/{code}/history` | GET | 基金历史净值 |
+| `/api/funds/{code}/intraday` | GET | 基金日内分时数据 |
 | `/api/funds/watchlist` | POST/DELETE | 自选管理 |
+| `/api/funds/{code}/holding` | PUT | 持仓管理 |
+| `/api/bonds` | GET | 债券列表 |
+| `/api/bonds/{code}` | GET | 债券详情 |
+| `/api/bonds/search/cbonds` | GET | 可转债搜索 |
+| `/api/stocks` | GET | 股票行情（批量） |
+| `/api/stocks/{code}` | GET | 单个股票详情 |
 | `/api/commodities` | GET | 商品行情 |
-| `/api/commodities/watchlist` | GET/POST | 关注列表 |
+| `/api/commodities/watchlist` | GET/POST/DELETE | 关注列表 |
 | `/api/indices` | GET | 全球市场指数 |
 | `/api/sectors` | GET | 行业板块 |
 | `/api/news` | GET | 财经新闻 |
 | `/api/sentiment` | GET | 舆情数据 |
-| `/api/health` | GET | 健康检查 |
+| `/api/holidays` | GET | 节假日列表 |
 | `/trading-calendar/is-trading-day/{market}` | GET | 交易状态 |
+| `/trading-calendar/calendar/{market}` | GET | 年度交易日历 |
+| `/trading-calendar/next-trading-day/{market}` | GET | 下一交易日 |
+| `/trading-calendar/market-status` | GET | 多市场状态 |
 | `/api/cache/stats` | GET | 缓存统计 |
 | `/api/datasource/statistics` | GET | 数据源统计 |
-| `/api/ws` | WebSocket | 实时数据推送 |
+| `/api/datasource/health` | GET | 数据源健康状态 |
+| `/api/datasource/sources` | GET | 已注册数据源列表 |
+| `/api/health` | GET | 详细健康检查 |
+| `/api/health/simple` | GET | 简单健康检查 |
+| `/ws/realtime` | WebSocket | 实时数据推送 |
+| `/ws/manager/status` | GET | WebSocket 管理状态 |

@@ -104,9 +104,19 @@ Fund-Real-Time-Valuation/
 │
 ├── src/                      # Python 源码
 │   ├── datasources/          # 数据源层
-│   │   ├── akshare.py        # A股数据
-│   │   ├── yfinance.py       # 全球市场
-│   │   └── manager.py        # 数据源管理器
+│   │   ├── base.py           # 数据源基类
+│   │   ├── manager.py        # 数据源管理器
+│   │   ├── fund_source.py    # 基金数据源
+│   │   ├── commodity_source.py # 商品数据源
+│   │   ├── index_source.py   # 指数数据源
+│   │   ├── sector_source.py  # 板块数据源
+│   │   ├── stock_source.py   # 股票数据源
+│   │   ├── bond_source.py    # 债券数据源
+│   │   ├── trading_calendar_source.py # 交易日历
+│   │   ├── cache.py          # 缓存模块
+│   │   ├── gateway.py        # 数据网关
+│   │   └── fund/             # 基金子模块
+│   │       └── cache_strategy.py
 │   ├── db/                   # 数据库层
 │   ├── config/               # 配置管理
 │   └── utils/                # 工具模块
@@ -167,9 +177,44 @@ GET /api/funds/{code}
 # 基金估值
 GET /api/funds/{code}/estimate
 
+# 基金历史净值
+GET /api/funds/{code}/history?period=近一年
+
+# 基金日内分时数据
+GET /api/funds/{code}/intraday
+
+# 按日期获取日内分时数据
+GET /api/funds/{code}/intraday/{date}
+
 # 自选管理
 POST   /api/funds/watchlist    # 添加自选
-DELETE /api/funds/watchlist    # 删除自选
+DELETE /api/funds/watchlist/{code}  # 删除自选
+
+# 持仓管理
+PUT /api/funds/{code}/holding?holding=true  # 标记/取消持有
+```
+
+### 债券
+
+```bash
+# 债券列表
+GET /api/bonds?bond_type=cbond
+
+# 单个债券详情
+GET /api/bonds/{code}?market=sh
+
+# 可转债搜索
+GET /api/bonds/search/cbonds?keyword=110
+```
+
+### 股票
+
+```bash
+# 股票行情（批量）
+GET /api/stocks?codes=sh600000,sz000001,AAPL
+
+# 单个股票详情
+GET /api/stocks/{code}
 ```
 
 ### 商品
@@ -212,6 +257,16 @@ GET /api/news
 GET /api/sentiment
 ```
 
+### 节假日
+
+```bash
+# 节假日列表
+GET /api/holidays?market=china&year=2025
+
+# 指定市场节假日
+GET /api/holidays/{market}?year=2025
+```
+
 ### 交易日历
 
 ```bash
@@ -246,11 +301,27 @@ GET /api/datasource/health
 GET /api/datasource/sources
 ```
 
+### 健康检查
+
+```bash
+# 简单健康检查
+GET /api/health/simple
+
+# 详细健康检查
+GET /api/health
+```
+
 ### WebSocket
 
 ```bash
 # 实时数据推送
-WS /api/ws
+WS /ws/realtime
+
+# WebSocket 管理状态
+GET /ws/manager/status
+
+# 广播消息
+POST /ws/manager/broadcast
 ```
 
 ## 配置
