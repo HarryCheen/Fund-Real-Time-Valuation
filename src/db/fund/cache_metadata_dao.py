@@ -35,7 +35,6 @@ class CacheMetadataDAO:
         Returns:
             CacheMetadata | None: 缓存元数据，不存在返回 None
         """
-        import sqlite3
 
         with self.db.get_connection() as conn:
             cursor = conn.cursor()

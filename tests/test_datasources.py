@@ -668,7 +668,7 @@ class TestFundTypeFromFundNameEm:
         # 注意：这个测试可能会因为 API 返回格式变化而失败
         # 所以我们只测试函数不会抛出异常
         try:
-            result = _get_fund_type_from_fund_name_em("000000")
+            _get_fund_type_from_fund_name_em("000000")
             # 无论返回什么，都不应该抛出异常
         except Exception:
             pytest.fail("函数不应该抛出异常")

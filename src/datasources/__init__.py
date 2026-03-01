@@ -72,6 +72,7 @@ from .hot_backup import (
     HotBackupManager,
     HotBackupResult,
 )
+from .manager import DataSourceConfig, DataSourceManager, create_default_manager
 from .stock_source import (
     BaostockStockSource,
     SinaStockDataSource,

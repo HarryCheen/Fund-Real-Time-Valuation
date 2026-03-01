@@ -2,7 +2,7 @@
  * 商品页面页面对象
  */
 
-import { Page, Locator, expect } from '@playwright/test';
+import { Page, Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 
 export class CommoditiesPage extends BasePage {

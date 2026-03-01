@@ -5,7 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { FundsPage } from '../page-objects/FundsPage';
 import { mockFundsApi, mockEmptyData, mockApiError } from '../utils/api-mock';
-import { mockFunds, mockSearchResults } from '../fixtures/mock-data';
+import { mockSearchResults } from '../fixtures/mock-data';
 
 test.describe('基金列表测试', () => {
   test('基金列表正常显示', async ({ page }) => {

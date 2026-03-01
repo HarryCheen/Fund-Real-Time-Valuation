@@ -10,10 +10,11 @@
 
 import asyncio
 import logging
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Callable
+from typing import Any
 
 from src.db.database import CacheMetadata, DatabaseManager, FundBasicInfoDAO
 from src.db.fund.cache_metadata_dao import CacheMetadataDAO

@@ -10,13 +10,12 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import pandas as pd
 
 from src.db.database import (
-    CacheMetadata,
     DatabaseManager,
     FundBasicInfoDAO,
     FundDailyCacheDAO,
@@ -48,7 +47,10 @@ _daily_cache_dao: FundDailyCacheDAO | None = None
 # 基金基本信息缓存 DAO 单例
 _basic_info_dao: FundBasicInfoDAO | None = None
 # 交易日历源单例（用于净值缓存有效性判断）
-_trading_calendar_source: "TradingCalendarSource | None" = None  # noqa: F821
+_trading_calendar_source: "TradingCalendarSource | None" = None
+
+if TYPE_CHECKING:
+    from src.datasources.trading_calendar_source import TradingCalendarSource
 
 
 def get_fund_cache() -> DualLayerCache:

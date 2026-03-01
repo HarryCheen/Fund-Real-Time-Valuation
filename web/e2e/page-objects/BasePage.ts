@@ -3,7 +3,7 @@
  * 所有页面对象的父类，提供通用方法
  */
 
-import { Page, Locator, expect } from '@playwright/test';
+import { Page, expect } from '@playwright/test';
 
 export abstract class BasePage {
   readonly page: Page;

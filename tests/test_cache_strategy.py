@@ -14,22 +14,21 @@ import sys
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 # 添加 src 目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.db.database import CacheMetadata, DatabaseManager, FundBasicInfo, FundBasicInfoDAO
-from src.db.fund.cache_metadata_dao import CacheMetadataDAO
 from src.datasources.fund.cache_strategy import (
     CacheLockManager,
     CacheLockTimeoutError,
     CacheResult,
     FundCacheStrategy,
 )
-
+from src.db.database import CacheMetadata, DatabaseManager, FundBasicInfoDAO
+from src.db.fund.cache_metadata_dao import CacheMetadataDAO
 
 # ==================== Fixtures ====================
 

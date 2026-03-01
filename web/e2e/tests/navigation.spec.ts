@@ -86,7 +86,6 @@ test.describe('移动端导航测试', () => {
     await page.goto('/');
     await page.waitForLoadState('load');
 
-    const layout = new MainLayout(page);
     // 移动端侧边栏可能默认隐藏
     const sidebar = page.locator('.sidebar, nav');
     // 根据实际实现调整断言

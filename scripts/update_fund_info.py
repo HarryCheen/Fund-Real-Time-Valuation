@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 手动更新基金基础信息脚本
 
@@ -25,8 +24,8 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from src.datasources.fund_source import get_basic_info_db, get_full_fund_info
 from src.db.database import ConfigDAO, DatabaseManager
-from src.datasources.fund_source import get_basic_info_db, get_full_fund_info, save_basic_info_to_db
 
 # 配置日志
 logging.basicConfig(
@@ -91,7 +90,7 @@ def update_fund_info(fund_codes: list[str]) -> tuple[int, int]:
         logger.info("没有需要更新的基金")
         return 0, 0
 
-    logger.info(f"正在更新基金基础信息...")
+    logger.info("正在更新基金基础信息...")
 
     for i, code in enumerate(fund_codes, 1):
         try:
