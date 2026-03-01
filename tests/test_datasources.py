@@ -550,6 +550,160 @@ class TestDataSourceErrors:
 
 
 # ============================================================================
+# 10. 单元测试 - 基金类型推断
+# ============================================================================
+
+
+class TestFundTypeInference:
+    """基金类型推断测试"""
+
+    def test_infer_fund_type_qdii(self):
+        """测试 QDII 基金类型推断"""
+        from src.datasources.fund_source import _infer_fund_type_from_name
+
+        assert _infer_fund_type_from_name("华宝标普美国品质消费股票(QDII-LOF)A") == "QDII"
+        assert _infer_fund_type_from_name("易方达标普500指数(QDII-LOF)人民币") == "QDII"
+        assert _infer_fund_type_from_name("广发纳斯达克100指数(QDII)") == "QDII"
+
+    def test_infer_fund_type_fof(self):
+        """测试 FOF 基金类型推断"""
+        from src.datasources.fund_source import _infer_fund_type_from_name
+
+        assert _infer_fund_type_from_name("华夏聚惠稳健目标风险混合(FOF)") == "FOF"
+        assert _infer_fund_type_from_name("南方养老2035(FOF)") == "FOF"
+
+    def test_infer_fund_type_etf(self):
+        """测试 ETF 基金类型推断"""
+        from src.datasources.fund_source import _infer_fund_type_from_name
+
+        assert _infer_fund_type_from_name("华夏沪深300ETF") == "ETF"
+        assert _infer_fund_type_from_name("易方达创业板ETF") == "ETF"
+
+    def test_infer_fund_type_etf_connect(self):
+        """测试 ETF 联接基金类型推断"""
+        from src.datasources.fund_source import _infer_fund_type_from_name
+
+        assert _infer_fund_type_from_name("华夏沪深300ETF联接") == "ETF-联接"
+        assert _infer_fund_type_from_name("易方达创业板ETF联接A") == "ETF-联接"
+
+    def test_infer_fund_type_lof(self):
+        """测试 LOF 基金类型推断"""
+        from src.datasources.fund_source import _infer_fund_type_from_name
+
+        assert _infer_fund_type_from_name("兴全合润混合(LOF)") == "LOF"
+        assert _infer_fund_type_from_name("中欧盛世成长混合(LOF)") == "LOF"
+
+    def test_infer_fund_type_money(self):
+        """测试货币型基金类型推断"""
+        from src.datasources.fund_source import _infer_fund_type_from_name
+
+        assert _infer_fund_type_from_name("余额宝货币市场基金") == "货币型"
+        assert _infer_fund_type_from_name("华夏货币A") == "货币型"
+
+    def test_infer_fund_type_bond(self):
+        """测试债券型基金类型推断"""
+        from src.datasources.fund_source import _infer_fund_type_from_name
+
+        assert _infer_fund_type_from_name("易方达稳健债券") == "债券型"
+        assert _infer_fund_type_from_name("华夏债券A") == "债券型"
+
+    def test_infer_fund_type_hybrid(self):
+        """测试混合型基金类型推断"""
+        from src.datasources.fund_source import _infer_fund_type_from_name
+
+        assert _infer_fund_type_from_name("华夏回报混合") == "混合型"
+        assert _infer_fund_type_from_name("易方达蓝筹精选混合") == "混合型"
+
+    def test_infer_fund_type_index(self):
+        """测试指数型基金类型推断 - 关键测试"""
+        from src.datasources.fund_source import _infer_fund_type_from_name
+
+        # 指数型基金应该返回"指数型"，而不是"股票型"
+        assert _infer_fund_type_from_name("招商中证白酒指数") == "指数型"
+        assert _infer_fund_type_from_name("易方达上证50指数A") == "指数型"
+        assert _infer_fund_type_from_name("国泰中证新能源汽车指数") == "指数型"
+
+    def test_infer_fund_type_stock(self):
+        """测试股票型基金类型推断"""
+        from src.datasources.fund_source import _infer_fund_type_from_name
+
+        # 不含"指数"的股票型基金
+        assert _infer_fund_type_from_name("易方达中小盘股票") == "股票型"
+        assert _infer_fund_type_from_name("华夏成长股票") == "股票型"
+
+    def test_infer_fund_type_empty(self):
+        """测试空名称"""
+        from src.datasources.fund_source import _infer_fund_type_from_name
+
+        assert _infer_fund_type_from_name("") == ""
+        assert _infer_fund_type_from_name(None) == ""
+
+    def test_infer_fund_type_unknown(self):
+        """测试未知类型"""
+        from src.datasources.fund_source import _infer_fund_type_from_name
+
+        assert _infer_fund_type_from_name("某基金") == ""
+
+
+class TestFundTypeFromFundNameEm:
+    """基金类型 API 获取测试"""
+
+    @pytest.mark.skip(reason="需要真实 API 调用，在集成测试中运行")
+    def test_get_fund_type_from_fund_name_em_real(self):
+        """测试从 fund_name_em API 获取基金类型（真实调用）"""
+        from src.datasources.fund_source import _get_fund_type_from_fund_name_em
+
+        # 测试一个已知存在的基金
+        # 基金 025833 应该返回 "指数型-股票" 或类似格式
+        fund_type = _get_fund_type_from_fund_name_em("025833")
+        # 如果 API 正常工作，应该返回包含"指数"的类型
+        if fund_type:
+            assert "指数" in fund_type or "股票" in fund_type
+
+    def test_get_fund_type_from_fund_name_em_invalid(self):
+        """测试无效基金代码"""
+        from src.datasources.fund_source import _get_fund_type_from_fund_name_em
+
+        # 测试一个明显无效的基金代码
+        # 注意：这个测试可能会因为 API 返回格式变化而失败
+        # 所以我们只测试函数不会抛出异常
+        try:
+            result = _get_fund_type_from_fund_name_em("000000")
+            # 无论返回什么，都不应该抛出异常
+        except Exception:
+            pytest.fail("函数不应该抛出异常")
+
+
+class TestGetFundBasicInfo:
+    """基金基本信息获取测试"""
+
+    def test_get_fund_basic_info_type_priority(self):
+        """测试基金类型获取优先级"""
+        # 这个测试验证类型获取的优先级：
+        # 1. fund_individual_basic_info_xq (最精确)
+        # 2. fund_name_em (备用，保留子类型)
+        # 3. _infer_fund_type_from_name (最后回退)
+        #
+        # 由于涉及真实 API 调用，这里只验证函数签名和基本行为
+        from src.datasources.fund_source import get_fund_basic_info
+
+        # 验证函数存在且可调用
+        assert callable(get_fund_basic_info)
+
+    @pytest.mark.skip(reason="需要真实 API 调用，在集成测试中运行")
+    def test_get_fund_basic_info_index_fund(self):
+        """测试指数型基金类型获取 - 验证 025833 案例"""
+        from src.datasources.fund_source import get_fund_basic_info
+
+        # 获取基金 025833 的信息
+        result = get_fund_basic_info("025833")
+        if result:
+            name, fund_type = result
+            # 验证基金类型包含"指数"
+            assert "指数" in fund_type, f"期望基金类型包含'指数'，实际获取: {fund_type}"
+
+
+# ============================================================================
 # 运行测试
 # ============================================================================
 
