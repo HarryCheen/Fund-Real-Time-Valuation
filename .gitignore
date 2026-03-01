@@ -37,7 +37,7 @@ pnpm-debug.log*
 .pnpm-debug.log*
 .pnp
 .pnp.js
-pnpm-lock.yaml
+# pnpm-lock.yaml - 保留以支持 CI 缓存和可重现构建
 
 # Frontend build
 web/dist/
