@@ -16,14 +16,14 @@ from src.utils.websocket_manager import WebSocketManager, get_websocket_manager
 logger = logging.getLogger(__name__)
 
 # 交易时段推送间隔（秒）
-TRADING_FUND_INTERVAL = 30
-TRADING_COMMODITY_INTERVAL = 15
-TRADING_INDEX_INTERVAL = 15
+TRADING_FUND_INTERVAL = 10  # 基金估值更新频率
+TRADING_COMMODITY_INTERVAL = 10
+TRADING_INDEX_INTERVAL = 10
 
 # 非交易时段推送间隔（秒）
-NON_TRADING_FUND_INTERVAL = 120
-NON_TRADING_COMMODITY_INTERVAL = 60
-NON_TRADING_INDEX_INTERVAL = 60
+NON_TRADING_FUND_INTERVAL = 60  # 非交易时段降低频率
+NON_TRADING_COMMODITY_INTERVAL = 30
+NON_TRADING_INDEX_INTERVAL = 30
 
 
 class RealtimePusher:
@@ -66,7 +66,9 @@ class RealtimePusher:
     def _is_trading_hours(self, market: Market = Market.CHINA) -> bool:
         try:
             result = self._trading_calendar.is_within_trading_hours(market)
-            return result.get("status") == "open"
+            is_open = result.get("status") == "open"
+            logger.debug(f"交易时段检查: market={market.value}, result={result}, is_open={is_open}")
+            return is_open
         except Exception as e:
             logger.warning(f"检查交易时段失败: {e}")
             return False
@@ -83,8 +85,12 @@ class RealtimePusher:
         if not old_data:
             return new_data
 
-        old_dict = {item.get("code") or item.get("symbol"): item for item in old_data}
-        new_dict = {item.get("code") or item.get("symbol"): item for item in new_data}
+        def _get_item_key(item: dict) -> str | None:
+            """获取数据项的唯一键，支持 code/symbol/fund_code 字段"""
+            return item.get("code") or item.get("symbol") or item.get("fund_code")
+
+        old_dict = {_get_item_key(item): item for item in old_data if _get_item_key(item)}
+        new_dict = {_get_item_key(item): item for item in new_data if _get_item_key(item)}
 
         old_keys = set(old_dict.keys())
         new_keys = set(new_dict.keys())
@@ -103,18 +109,54 @@ class RealtimePusher:
 
         return changed_items if changed_items else None
 
+    def _get_fund_codes(self) -> list[str]:
+        """获取自选基金代码列表"""
+        try:
+            from src.config import get_config_manager
+            config_manager = get_config_manager()
+            fund_list = config_manager.load_funds()
+            codes = fund_list.get_all_codes()
+            return codes if codes else []
+        except Exception as e:
+            logger.warning(f"获取基金代码列表失败: {e}")
+            return []
+
     async def _push_funds_loop(self):
         fund_interval, _, _ = self._get_intervals()
+        logger.info(f"基金推送循环启动，间隔: {fund_interval}s")
         while self._running:
             try:
                 if not self._has_subscribers("funds"):
+                    logger.debug("基金推送: 无订阅者，等待...")
                     await asyncio.sleep(5)
                     continue
 
-                result = await self.data_manager.fetch(DataSourceType.FUND)
-                if result.success and result.data:
-                    new_data = result.data if isinstance(result.data, list) else [result.data]
+                # 获取自选基金代码
+                fund_codes = self._get_fund_codes()
+                if not fund_codes:
+                    logger.debug("基金推送: 无自选基金，等待...")
+                    await asyncio.sleep(fund_interval)
+                    continue
 
+                logger.debug(f"基金推送: 开始获取 {len(fund_codes)} 只基金数据...")
+                
+                # 使用 fetch_batch 批量获取基金数据
+                params_list = [{"args": [code]} for code in fund_codes]
+                results = await self.data_manager.fetch_batch(DataSourceType.FUND, params_list)
+                
+                # 汇总成功的基金数据
+                new_data = []
+                failed_count = 0
+                for result in results:
+                    if result.success and result.data:
+                        new_data.append(result.data)
+                    else:
+                        failed_count += 1
+                
+                if failed_count > 0:
+                    logger.warning(f"基金推送: {failed_count}/{len(fund_codes)} 只获取失败")
+                
+                if new_data:
                     if self._last_fund_data is not None:
                         diff_data = self._diff_data("funds", self._last_fund_data, new_data)
                         if diff_data is None:
@@ -123,23 +165,23 @@ class RealtimePusher:
                             await asyncio.sleep(fund_interval)
                             continue
 
-                        await self.ws_manager.broadcast_to_subscription(
+                        sent = await self.ws_manager.broadcast_to_subscription(
                             subscription="funds",
                             message_type="fund_update",
-                            data=diff_data,
+                            data={"funds": diff_data},  # 包装为对象，与前端期望格式一致
                         )
-                        logger.debug(f"推送 {len(diff_data)} 条变化基金数据")
+                        logger.info(f"推送 {len(diff_data)} 条变化基金数据，发送到 {sent} 个客户端")
                     else:
-                        await self.ws_manager.broadcast_to_subscription(
+                        sent = await self.ws_manager.broadcast_to_subscription(
                             subscription="funds",
                             message_type="fund_update",
-                            data=new_data,
+                            data={"funds": new_data},  # 包装为对象
                         )
-                        logger.debug(f"首次推送 {len(new_data)} 条基金数据")
+                        logger.info(f"首次推送 {len(new_data)} 条基金数据，发送到 {sent} 个客户端")
 
                     self._last_fund_data = new_data
                 else:
-                    logger.warning(f"获取基金数据失败: {result.error}")
+                    logger.warning("基金推送: 所有基金数据获取失败")
 
             except Exception as e:
                 logger.error(f"基金推送循环异常: {e}")
@@ -168,19 +210,19 @@ class RealtimePusher:
                             await asyncio.sleep(commodity_interval)
                             continue
 
-                        await self.ws_manager.broadcast_to_subscription(
+                        sent = await self.ws_manager.broadcast_to_subscription(
                             subscription="commodities",
                             message_type="commodity_update",
-                            data=diff_data,
+                            data={"commodities": diff_data},  # 包装为对象
                         )
-                        logger.debug(f"推送 {len(diff_data)} 条变化商品数据")
+                        logger.info(f"推送 {len(diff_data)} 条变化商品数据，发送到 {sent} 个客户端")
                     else:
-                        await self.ws_manager.broadcast_to_subscription(
+                        sent = await self.ws_manager.broadcast_to_subscription(
                             subscription="commodities",
                             message_type="commodity_update",
-                            data=new_data,
+                            data={"commodities": new_data},  # 包装为对象
                         )
-                        logger.debug(f"首次推送 {len(new_data)} 条商品数据")
+                        logger.info(f"首次推送 {len(new_data)} 条商品数据，发送到 {sent} 个客户端")
 
                     self._last_commodity_data = new_data
                 else:
@@ -191,18 +233,47 @@ class RealtimePusher:
 
             await asyncio.sleep(commodity_interval)
 
+    # 支持的指数类型列表
+    SUPPORTED_INDICES = [
+        "sh000001",  # 上证指数
+        "sz399001",  # 深证成指
+        "sz399006",  # 创业板指
+        "sh000300",  # 沪深300
+        "sh000016",  # 上证50
+        "sh000905",  # 中证500
+        "hkHSI",     # 恒生指数
+        "usDJI",     # 道琼斯
+        "usIXIC",    # 纳斯达克
+        "usSPX",     # 标普500
+    ]
+
     async def _push_indices_loop(self):
         _, _, index_interval = self._get_intervals()
+        logger.info(f"指数推送循环启动，间隔: {index_interval}s")
         while self._running:
             try:
                 if not self._has_subscribers("indices"):
+                    logger.debug("指数推送: 无订阅者，等待...")
                     await asyncio.sleep(5)
                     continue
 
-                result = await self.data_manager.fetch(DataSourceType.STOCK)
-                if result.success and result.data:
-                    new_data = result.data if isinstance(result.data, list) else [result.data]
-
+                # 使用 fetch_batch 批量获取指数数据
+                params_list = [{"args": [it]} for it in self.SUPPORTED_INDICES]
+                results = await self.data_manager.fetch_batch(DataSourceType.STOCK, params_list)
+                
+                # 汇总成功的指数数据
+                new_data = []
+                failed_count = 0
+                for result in results:
+                    if result.success and result.data:
+                        new_data.append(result.data)
+                    else:
+                        failed_count += 1
+                
+                if failed_count > 0:
+                    logger.debug(f"指数推送: {failed_count}/{len(self.SUPPORTED_INDICES)} 个指数获取失败")
+                
+                if new_data:
                     if self._last_index_data is not None:
                         diff_data = self._diff_data("indices", self._last_index_data, new_data)
                         if diff_data is None:
@@ -211,23 +282,23 @@ class RealtimePusher:
                             await asyncio.sleep(index_interval)
                             continue
 
-                        await self.ws_manager.broadcast_to_subscription(
+                        sent = await self.ws_manager.broadcast_to_subscription(
                             subscription="indices",
                             message_type="index_update",
-                            data=diff_data,
+                            data={"indices": diff_data},  # 包装为对象
                         )
-                        logger.debug(f"推送 {len(diff_data)} 条变化指数数据")
+                        logger.info(f"推送 {len(diff_data)} 条变化指数数据，发送到 {sent} 个客户端")
                     else:
-                        await self.ws_manager.broadcast_to_subscription(
+                        sent = await self.ws_manager.broadcast_to_subscription(
                             subscription="indices",
                             message_type="index_update",
-                            data=new_data,
+                            data={"indices": new_data},  # 包装为对象
                         )
-                        logger.debug(f"首次推送 {len(new_data)} 条指数数据")
+                        logger.info(f"首次推送 {len(new_data)} 条指数数据，发送到 {sent} 个客户端")
 
                     self._last_index_data = new_data
                 else:
-                    logger.warning(f"获取指数数据失败: {result.error}")
+                    logger.warning("指数推送: 所有指数数据获取失败")
 
             except Exception as e:
                 logger.error(f"指数推送循环异常: {e}")

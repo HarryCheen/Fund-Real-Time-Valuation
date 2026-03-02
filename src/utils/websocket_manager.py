@@ -6,7 +6,9 @@ WebSocket 连接管理器模块
 """
 
 import asyncio
+import json
 import logging
+import math
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -17,6 +19,54 @@ from typing import Any
 from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_json_default(obj: Any) -> Any:
+    """
+    安全的 JSON 序列化默认处理函数。
+
+    将 NaN 和 Infinity 转换为 None，其他无法序列化的对象转为字符串。
+    """
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+    return str(obj)
+
+
+def safe_json_dumps(obj: Any, **kwargs) -> str:
+    """
+    安全的 JSON 序列化函数。
+
+    确保所有 NaN 和 Infinity 值被转换为 null，避免前端 JSON.parse() 失败。
+
+    Args:
+        obj: 要序列化的对象
+        **kwargs: 传递给 json.dumps 的其他参数
+
+    Returns:
+        str: JSON 字符串
+    """
+    # 设置默认参数
+    kwargs.setdefault("ensure_ascii", False)
+    kwargs.setdefault("default", _safe_json_default)
+
+    # 使用 allow_nan=False 禁止 NaN/Infinity 的非标准 JSON 输出
+    # 配合 default 处理函数将这些值转换为 null
+    try:
+        return json.dumps(obj, allow_nan=False, **kwargs)
+    except ValueError:
+        # 如果 allow_nan=False 抛出异常，使用递归处理
+        def convert_nan(obj: Any) -> Any:
+            if isinstance(obj, float):
+                if math.isnan(obj) or math.isinf(obj):
+                    return None
+            elif isinstance(obj, dict):
+                return {k: convert_nan(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_nan(item) for item in obj]
+            return obj
+
+        return json.dumps(convert_nan(obj), **kwargs)
 
 
 class ConnectionState(Enum):
@@ -246,17 +296,13 @@ class WebSocketManager:
             logger.debug(f"广播消息: 无订阅者, type={message.type}")
             return 0
 
-        import json
-
         try:
-            payload = json.dumps(
+            payload = safe_json_dumps(
                 {
                     "type": message.type,
                     "data": message.data,
                     "timestamp": message.timestamp.isoformat(),
-                },
-                ensure_ascii=False,
-                default=str,
+                }
             )
         except Exception as e:
             logger.error(f"序列化消息失败: {e}")
@@ -305,22 +351,18 @@ class WebSocketManager:
         Returns:
             bool: 是否发送成功
         """
-        import json
-
         async with self._lock:
             client = self._clients.get(client_id)
             if not client or client.state != ConnectionState.CONNECTED:
                 return False
 
         try:
-            payload = json.dumps(
+            payload = safe_json_dumps(
                 {
                     "type": message.type,
                     "data": message.data,
                     "timestamp": message.timestamp.isoformat(),
-                },
-                ensure_ascii=False,
-                default=str,
+                }
             )
             await client.websocket.send_text(payload)
             client.last_heartbeat = datetime.now()
