@@ -102,76 +102,56 @@ INDEX_NAMES = {
 }
 
 
+# A股市场配置 (共享)
+A_SHARE_MARKET_HOURS = {
+    "open": "01:30",
+    "close": "08:00",
+    "tz": "Asia/Shanghai",
+    "lunch_start": "03:30",
+    "lunch_end": "05:00",
+}
+
+# A股指数列表
+A_SHARE_INDICES = [
+    "shanghai",
+    "shenzhen",
+    "shanghai50",
+    "chi_next",
+    "star50",
+    "csi500",
+    "csi1000",
+    "hs300",
+    "csiall",
+]
+
+# 港股市场配置 (无午休)
+HK_MARKET_HOURS = {
+    "open": "01:30",
+    "close": "08:00",
+    "tz": "Asia/Hong_Kong",
+}
+
+# 港股指数列表
+HK_INDICES = ["hang_seng", "hang_seng_tech"]
+
+# 美股市场配置
+US_MARKET_HOURS = {
+    "open": "14:30",
+    "close": "21:00",
+    "tz": "America/New_York",
+}
+
+# 美股指数列表
+US_INDICES = ["dow_jones", "nasdaq", "sp500"]
+
+
 # 各市场开盘时间段 (UTC 时间)
 # lunch_start/lunch_end 为午休时间段（本地时间），可选
-MARKET_HOURS = {
-    # A股 (9:30-11:30, 13:00-15:00 UTC+8)
-    "shanghai": {
-        "open": "01:30",
-        "close": "08:00",
-        "tz": "Asia/Shanghai",
-        "lunch_start": "03:30",
-        "lunch_end": "05:00",
-    },
-    "shenzhen": {
-        "open": "01:30",
-        "close": "08:00",
-        "tz": "Asia/Shanghai",
-        "lunch_start": "03:30",
-        "lunch_end": "05:00",
-    },
-    "shanghai50": {
-        "open": "01:30",
-        "close": "08:00",
-        "tz": "Asia/Shanghai",
-        "lunch_start": "03:30",
-        "lunch_end": "05:00",
-    },
-    "chi_next": {
-        "open": "01:30",
-        "close": "08:00",
-        "tz": "Asia/Shanghai",
-        "lunch_start": "03:30",
-        "lunch_end": "05:00",
-    },
-    "star50": {
-        "open": "01:30",
-        "close": "08:00",
-        "tz": "Asia/Shanghai",
-        "lunch_start": "03:30",
-        "lunch_end": "05:00",
-    },
-    "csi500": {
-        "open": "01:30",
-        "close": "08:00",
-        "tz": "Asia/Shanghai",
-        "lunch_start": "03:30",
-        "lunch_end": "05:00",
-    },
-    "csi1000": {
-        "open": "01:30",
-        "close": "08:00",
-        "tz": "Asia/Shanghai",
-        "lunch_start": "03:30",
-        "lunch_end": "05:00",
-    },
-    "hs300": {
-        "open": "01:30",
-        "close": "08:00",
-        "tz": "Asia/Shanghai",
-        "lunch_start": "03:30",
-        "lunch_end": "05:00",
-    },
-    "csiall": {
-        "open": "01:30",
-        "close": "08:00",
-        "tz": "Asia/Shanghai",
-        "lunch_start": "03:30",
-        "lunch_end": "05:00",
-    },
+MARKET_HOURS: dict[str, dict[str, str]] = {
+    # A股 (9:30-11:30, 13:00-15:00 UTC+8) - 使用字典推导式生成
+    **{idx: A_SHARE_MARKET_HOURS.copy() for idx in A_SHARE_INDICES},
     # 港股 (9:30-16:00 UTC+8, 无午休)
-    "hang_seng": {"open": "01:30", "close": "08:00", "tz": "Asia/Hong_Kong"},
-    "hang_seng_tech": {"open": "01:30", "close": "08:00", "tz": "Asia/Hong_Kong"},
+    **{idx: HK_MARKET_HOURS.copy() for idx in HK_INDICES},
     # 日经 (9:00-15:00 UTC+9, 无午休)
     "nikkei225": {"open": "00:00", "close": "06:00", "tz": "Asia/Tokyo"},
     # 欧洲 (9:00-17:30 CET, 无午休)
@@ -179,14 +159,16 @@ MARKET_HOURS = {
     "ftse": {"open": "08:00", "close": "16:30", "tz": "Europe/London"},
     "cac40": {"open": "08:00", "close": "16:30", "tz": "Europe/Paris"},
     # 美股 (9:30-16:00 EST, 无午休)
-    "dow_jones": {"open": "14:30", "close": "21:00", "tz": "America/New_York"},
-    "nasdaq": {"open": "14:30", "close": "21:00", "tz": "America/New_York"},
-    "sp500": {"open": "14:30", "close": "21:00", "tz": "America/New_York"},
+    **{idx: US_MARKET_HOURS.copy() for idx in US_INDICES},
 }
 
 
 class IndexDataSource(DataSource):
-    """全球指数数据源基类"""
+    """全球指数数据源基类
+
+    由于实时数据不需要缓存，该类移除了缓存逻辑。
+    如果未来需要缓存，可以在子类中实现。
+    """
 
     def __init__(self, name: str, timeout: float = 30.0):
         """
@@ -201,23 +183,43 @@ class IndexDataSource(DataSource):
             source_type=DataSourceType.STOCK,  # 复用 STOCK 类型
             timeout=timeout,
         )
-        self._cache: dict[str, dict[str, Any]] = {}
-        self._cache_timeout = 0  # 禁用缓存
 
-    def _is_cache_valid(self, cache_key: str) -> bool:
-        """检查缓存是否有效"""
-        if cache_key not in self._cache:
-            return False
-        cache_time = self._cache[cache_key].get("_cache_time", 0)
-        return (time.time() - cache_time) < self._cache_timeout
-
-    def clear_cache(self):
-        """清空缓存"""
-        self._cache.clear()
-
-    async def close(self):
+    async def close(self) -> None:
         """关闭数据源"""
         pass
+
+    async def fetch_batch(self, index_types: list[str]) -> list[DataSourceResult]:
+        """批量获取指数数据的通用实现
+
+        Args:
+            index_types: 指数类型列表
+
+        Returns:
+            结果列表，与输入顺序一致
+        """
+
+        async def fetch_one(itype: str) -> DataSourceResult:
+            return await self.fetch(itype)
+
+        tasks = [fetch_one(itype) for itype in index_types]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        processed_results: list[DataSourceResult] = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                processed_results.append(
+                    DataSourceResult(
+                        success=False,
+                        error=str(result),
+                        timestamp=time.time(),
+                        source=self.name,
+                        metadata={"index_type": index_types[i]},
+                    )
+                )
+            else:
+                processed_results.append(result)
+
+        return processed_results
 
 
 class YahooIndexSource(IndexDataSource):
@@ -236,16 +238,6 @@ class YahooIndexSource(IndexDataSource):
         Returns:
             DataSourceResult: 指数数据结果
         """
-        cache_key = index_type
-        if self._is_cache_valid(cache_key):
-            return DataSourceResult(
-                success=True,
-                data=self._cache[cache_key],
-                timestamp=self._cache[cache_key].get("_cache_time", time.time()),
-                source=self.name,
-                metadata={"index_type": index_type, "from_cache": True},
-            )
-
         try:
             import yfinance as yf
 
@@ -278,7 +270,7 @@ class YahooIndexSource(IndexDataSource):
 
             # 转换时间戳为可读格式
             market_time = info.get("regularMarketTime")
-            data_timestamp = None
+            data_timestamp: str | None = None
             if market_time:
                 try:
                     time_str = datetime.fromtimestamp(market_time).strftime("%Y-%m-%d %H:%M:%S")
@@ -309,10 +301,6 @@ class YahooIndexSource(IndexDataSource):
                 "market_hours": MARKET_HOURS.get(index_type, {}),
             }
 
-            # 缓存数据
-            data["_cache_time"] = time.time()
-            self._cache[cache_key] = data
-
             self._record_success()
             return DataSourceResult(
                 success=True,
@@ -333,37 +321,9 @@ class YahooIndexSource(IndexDataSource):
         except Exception as e:
             return self._handle_error(e, self.name)
 
-    async def fetch_batch(self, index_types: list[str]) -> list[DataSourceResult]:
-        """批量获取指数数据"""
-
-        async def fetch_one(itype: str) -> DataSourceResult:
-            return await self.fetch(itype)
-
-        tasks = [fetch_one(itype) for itype in index_types]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        processed_results = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                processed_results.append(
-                    DataSourceResult(
-                        success=False,
-                        error=str(result),
-                        timestamp=time.time(),
-                        source=self.name,
-                        metadata={"index_type": index_types[i]},
-                    )
-                )
-            else:
-                processed_results.append(result)
-
-        return processed_results
-
     def get_status(self) -> dict[str, Any]:
         """获取数据源状态"""
         status = super().get_status()
-        status["cache_size"] = len(self._cache)
-        status["cache_timeout"] = self._cache_timeout
         status["supported_indices"] = list(INDEX_TICKERS.keys())
         return status
 
@@ -385,16 +345,6 @@ class TencentIndexSource(IndexDataSource):
         Returns:
             DataSourceResult: 指数数据结果
         """
-        cache_key = f"tencent_{index_type}"
-        if self._is_cache_valid(cache_key):
-            return DataSourceResult(
-                success=True,
-                data=self._cache[cache_key],
-                timestamp=self._cache[cache_key].get("_cache_time", time.time()),
-                source=self.name,
-                metadata={"index_type": index_type, "from_cache": True},
-            )
-
         try:
             tencent_code = TENCENT_CODES.get(index_type)
             if not tencent_code:
@@ -479,11 +429,12 @@ class TencentIndexSource(IndexDataSource):
                 change = float(parts[31]) if parts[31] else 0.0
                 change_percent = float(parts[32]) if parts[32] else 0.0
                 currency = "CNY"
-                exchange = "SSE" if tencent_code.startswith("s_sh") else "SZSE"
+                # Fix: A股代码格式是 sh000001 或 sz399001，不是 s_sh
+                exchange = "SSE" if tencent_code.startswith("sh") else "SZSE"
 
             # 从腾讯数据中提取时间戳（格式：YYYYMMDDHHmmss）
             # 例如：20210105154040 表示 2021-01-05 15:40:40
-            data_timestamp = None
+            data_timestamp: datetime | None = None
             for i in range(len(parts) - 1, -1, -1):
                 if parts[i] and len(parts[i]) == 14 and parts[i].isdigit():
                     try:
@@ -517,10 +468,6 @@ class TencentIndexSource(IndexDataSource):
                 "market_hours": MARKET_HOURS.get(index_type, {}),
             }
 
-            # 缓存数据
-            data["_cache_time"] = time.time()
-            self._cache[cache_key] = data
-
             self._record_success()
             return DataSourceResult(
                 success=True,
@@ -535,38 +482,10 @@ class TencentIndexSource(IndexDataSource):
         except Exception as e:
             return self._handle_error(e, self.name)
 
-    async def fetch_batch(self, index_types: list[str]) -> list[DataSourceResult]:
-        """批量获取指数数据"""
-
-        async def fetch_one(itype: str) -> DataSourceResult:
-            return await self.fetch(itype)
-
-        tasks = [fetch_one(itype) for itype in index_types]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        processed_results = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                processed_results.append(
-                    DataSourceResult(
-                        success=False,
-                        error=str(result),
-                        timestamp=time.time(),
-                        source=self.name,
-                        metadata={"index_type": index_types[i]},
-                    )
-                )
-            else:
-                processed_results.append(result)
-
-        return processed_results
-
     def get_status(self) -> dict[str, Any]:
         """获取数据源状态"""
         status = super().get_status()
-        status["cache_size"] = len(self._cache)
-        status["cache_timeout"] = self._cache_timeout
-        status["data_sources"] = {"tencent": "A股/港股/美股 (实时)", "yahoo": "日经/欧洲 (延迟)"}
+        status["supported_indices"] = list(TENCENT_CODES.keys())
         return status
 
 
@@ -590,42 +509,24 @@ class HybridIndexSource(IndexDataSource):
         else:
             return await self._yahoo.fetch(index_type)
 
-    async def fetch_batch(self, index_types: list[str]) -> list[DataSourceResult]:
-        """批量获取指数数据"""
-
-        async def fetch_one(itype: str) -> DataSourceResult:
-            return await self.fetch(itype)
-
-        tasks = [fetch_one(itype) for itype in index_types]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        processed_results = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                processed_results.append(
-                    DataSourceResult(
-                        success=False,
-                        error=str(result),
-                        timestamp=time.time(),
-                        source=self.name,
-                        metadata={"index_type": index_types[i]},
-                    )
-                )
-            else:
-                processed_results.append(result)
-
-        return processed_results
-
-    def clear_cache(self):
-        """清空所有缓存"""
-        super().clear_cache()
-        self._tencent.clear_cache()
-        self._yahoo.clear_cache()
-
-    async def close(self):
+    async def close(self) -> None:
         """关闭数据源"""
         await self._tencent.close()
         await self._yahoo.close()
+
+    async def health_check(self) -> bool:
+        """
+        健康检查
+
+        测试腾讯数据源（上证指数）来验证健康状态，
+        因为腾讯数据源覆盖 A股/港股/美股，是主要数据源。
+        """
+        try:
+            # 测试腾讯数据源（上证指数）
+            result = await self._tencent.fetch("shanghai")
+            return result.success
+        except Exception:
+            return False
 
     def get_status(self) -> dict[str, Any]:
         """获取数据源状态"""
