@@ -15,6 +15,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from typing import Any
+
 from typing_extensions import TypedDict
 
 from src.db.commodity_repo import CommodityCacheDAO, CommodityCategory

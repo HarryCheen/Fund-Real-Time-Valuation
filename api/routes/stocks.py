@@ -6,9 +6,9 @@
 import logging
 from datetime import datetime
 from functools import cache
-from typing_extensions import TypedDict
 
 from fastapi import APIRouter, HTTPException, Query
+from typing_extensions import TypedDict
 
 from src.datasources.stock_source import SinaStockDataSource, YahooStockSource
 

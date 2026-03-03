@@ -5,10 +5,10 @@
 
 from datetime import datetime, time
 from typing import Any
-from typing_extensions import TypedDict
 
 import pytz
 from fastapi import APIRouter, Depends
+from typing_extensions import TypedDict
 
 from src.datasources.base import DataSourceType
 from src.datasources.index_source import INDEX_NAMES, INDEX_REGIONS, MARKET_HOURS

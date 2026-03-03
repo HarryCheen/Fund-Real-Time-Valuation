@@ -6,9 +6,9 @@
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing_extensions import TypedDict
 
 import yaml
+from typing_extensions import TypedDict
 
 
 class WatchedCommodityDict(TypedDict):

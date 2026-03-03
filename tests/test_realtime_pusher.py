@@ -4,7 +4,7 @@
 测试 _to_camel_case 和 _convert_dict_to_camel_case 函数。
 """
 
-from src.utils.websocket_manager import _to_camel_case, _convert_dict_to_camel_case
+from src.utils.websocket_manager import _convert_dict_to_camel_case, _to_camel_case
 
 
 class TestToCamelCase:

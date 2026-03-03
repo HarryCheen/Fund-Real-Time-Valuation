@@ -4,9 +4,9 @@
 """
 
 from datetime import datetime, timezone
-from typing_extensions import TypedDict
 
 from fastapi import APIRouter, Depends, HTTPException
+from typing_extensions import TypedDict
 
 from src.datasources.manager import DataSourceManager
 

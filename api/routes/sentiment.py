@@ -5,9 +5,9 @@
 
 import logging
 from datetime import datetime
-from typing_extensions import TypedDict
 
 from fastapi import APIRouter, Depends, Query
+from typing_extensions import TypedDict
 
 from src.datasources.manager import DataSourceManager
 
