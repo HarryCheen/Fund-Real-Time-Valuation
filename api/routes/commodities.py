@@ -7,9 +7,9 @@ import logging
 from datetime import datetime
 from functools import lru_cache
 from typing import Any
-from typing_extensions import TypedDict
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from typing_extensions import TypedDict
 
 from src.config.commodities_config import CommoditiesConfig
 from src.datasources.base import DataSourceType
@@ -560,6 +560,23 @@ class WatchedCommodityResponse(TypedDict):
     addedAt: str
 
 
+def _convert_to_watched_commodity_response(item: dict) -> WatchedCommodityResponse:
+    """将 snake_case 字段名转换为 camelCase 响应格式
+
+    Args:
+        item: 从配置读取的商品数据（snake_case 字段）
+
+    Returns:
+        WatchedCommodityResponse: camelCase 格式的响应
+    """
+    return {
+        "symbol": item["symbol"],
+        "name": item["name"],
+        "category": item["category"],
+        "addedAt": item["added_at"],
+    }
+
+
 class WatchedCommodityAddRequest(TypedDict):
     """添加关注商品请求"""
 
@@ -701,9 +718,12 @@ async def get_watchlist() -> WatchlistResponse:
     config = CommoditiesConfig()
     watched = config.get_watched_commodities()
 
+    # 使用辅助函数转换字段名
+    watchlist = [_convert_to_watched_commodity_response(item) for item in watched]
+
     return {
-        "watchlist": watched,
-        "count": len(watched),
+        "watchlist": watchlist,
+        "count": len(watchlist),
         "timestamp": datetime.now().isoformat() + "Z",
     }
 
@@ -847,9 +867,12 @@ async def get_watchlist_by_category(
     config = CommoditiesConfig()
     watched = config.get_watched_by_category(category)
 
+    # 使用辅助函数转换字段名
+    watchlist = [_convert_to_watched_commodity_response(item) for item in watched]
+
     return {
-        "watchlist": watched,
-        "count": len(watched),
+        "watchlist": watchlist,
+        "count": len(watchlist),
         "timestamp": datetime.now().isoformat() + "Z",
     }
 
