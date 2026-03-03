@@ -384,6 +384,15 @@ export const useFundStore = defineStore('funds', () => {
     }
   }
 
+  // 更新单个基金（用于 WebSocket 实时更新）
+  function updateFund(updatedFund: Partial<Fund> & { code: string }) {
+    const index = funds.value.findIndex((f) => f.code === updatedFund.code);
+    if (index !== -1) {
+      // 使用 splice 确保响应式更新
+      funds.value.splice(index, 1, { ...funds.value[index], ...updatedFund } as Fund);
+    }
+  }
+
   return {
     // State
     funds,
@@ -415,6 +424,7 @@ export const useFundStore = defineStore('funds', () => {
     addFund,
     removeFund,
     toggleHolding,
+    updateFund,
   };
 }, {
   persist: {

@@ -251,17 +251,30 @@ async function refresh() {
 
 function setupWebSocketHandlers() {
   wsStore.on('fund_update', (data) => {
-    const payload = data as { funds?: Fund[] };
+    const payload = data as { funds?: any[] };
     const funds = payload?.funds;
     if (funds && funds.length > 0) {
       funds.forEach((updatedFund) => {
-        const fundCode = updatedFund.code;
-        if (fundCode) {
-          const index = fundStore.funds.findIndex(f => f.code === fundCode);
-          if (index !== -1) {
-            fundStore.funds[index] = { ...fundStore.funds[index], ...updatedFund };
-          }
+        // WebSocket 推送的字段名需要映射到前端期望的字段名
+        // fundCode -> code, unitNetValue -> netValue 等
+        const fundCode = updatedFund.fundCode || updatedFund.code;
+        // 防御性检查：确保 code 字段存在，否则静默失败
+        if (!fundCode) {
+          console.warn('WebSocket 推送的基金数据缺少 code 字段', updatedFund);
+          return;
         }
+        const normalizedFund: Partial<Fund> & { code: string } = {
+          code: fundCode,
+          name: updatedFund.name,
+          netValue: updatedFund.unitNetValue ?? updatedFund.netValue,
+          netValueDate: updatedFund.netValueDate,
+          estimateValue: updatedFund.estimatedNetValue ?? updatedFund.estimateValue,
+          estimateChangePercent: updatedFund.estimatedGrowthRate ?? updatedFund.estimateChangePercent,
+          estimateTime: updatedFund.estimateTime,
+          type: updatedFund.type,
+          hasRealTimeEstimate: updatedFund.hasRealTimeEstimate ?? true,
+        };
+        fundStore.updateFund(normalizedFund);
       });
       fundStore.lastUpdated = new Date().toLocaleTimeString();
     }
