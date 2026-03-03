@@ -20,7 +20,10 @@ from src.utils.websocket_manager import (
 logger = logging.getLogger(__name__)
 
 # 交易时段推送间隔（秒）
-TRADING_FUND_INTERVAL = 10  # 基金估值更新频率
+# 注意：基金推送间隔设为 30 秒是为了平衡实时性和 API 压力
+# 基金估值数据通常不需要秒级更新，30 秒间隔足够满足用户需求
+# 同时避免过于频繁调用外部数据源导致被限流
+TRADING_FUND_INTERVAL = 30  # 基金估值更新频率（每30秒从数据源获取一次）
 TRADING_COMMODITY_INTERVAL = 10
 TRADING_INDEX_INTERVAL = 10
 
@@ -144,8 +147,13 @@ class RealtimePusher:
 
                 logger.debug(f"基金推送: 开始获取 {len(fund_codes)} 只基金数据...")
                 
-                # 使用 fetch_batch 批量获取基金数据
-                params_list = [{"args": [code]} for code in fund_codes]
+                # 交易时段不使用缓存，直接从数据源获取实时数据
+                # 非交易时段使用缓存以减少 API 调用
+                is_trading = self._is_trading_hours(Market.CHINA)
+                params_list = [
+                    {"args": [code], "kwargs": {"use_cache": not is_trading}}
+                    for code in fund_codes
+                ]
                 results = await self.data_manager.fetch_batch(DataSourceType.FUND, params_list)
                 
                 # 汇总成功的基金数据

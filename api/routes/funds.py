@@ -8,15 +8,16 @@ import logging
 from datetime import datetime
 from functools import lru_cache
 from typing import TYPE_CHECKING
-from typing_extensions import TypedDict
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from typing_extensions import TypedDict
 
 from src.config import get_config_manager
 from src.config.models import Fund, FundList, Holding
 from src.datasources.base import DataSourceType
 from src.datasources.fund_source import Fund123DataSource, get_basic_info_db
 from src.datasources.manager import DataSourceManager
+from src.datasources.trading_calendar_source import Market, TradingCalendarSource
 
 if TYPE_CHECKING:
     from src.datasources.fund_source import FundHistorySource
@@ -47,6 +48,28 @@ class FundListData(TypedDict):
 router = APIRouter(prefix="/api/funds", tags=["基金"])
 
 logger = logging.getLogger(__name__)
+
+# 交易日历源单例（用于判断是否交易时段）
+_trading_calendar_source: TradingCalendarSource | None = None
+
+
+def _get_trading_calendar_source() -> TradingCalendarSource:
+    """获取交易日历源单例"""
+    global _trading_calendar_source
+    if _trading_calendar_source is None:
+        _trading_calendar_source = TradingCalendarSource()
+    return _trading_calendar_source
+
+
+def _is_trading_hours() -> bool:
+    """检查当前是否为交易时段"""
+    try:
+        calendar = _get_trading_calendar_source()
+        result = calendar.is_within_trading_hours(Market.CHINA)
+        return result.get("status") == "open"
+    except Exception as e:
+        logger.warning(f"检查交易时段失败: {e}")
+        return False
 
 
 @lru_cache
@@ -351,6 +374,9 @@ async def get_fund_estimate(
     """
     获取基金估值
 
+    交易时段不使用缓存，直接从数据源获取实时数据。
+    非交易时段使用缓存以减少 API 调用。
+
     Args:
         code: 基金代码 (6位数字)
         manager: 数据源管理器依赖
@@ -358,8 +384,9 @@ async def get_fund_estimate(
     Returns:
         FundEstimateResponse: 基金估值信息
     """
-
-    result = await manager.fetch(DataSourceType.FUND, code)
+    # 交易时段不使用缓存，确保获取实时数据
+    use_cache = not _is_trading_hours()
+    result = await manager.fetch(DataSourceType.FUND, code, use_cache=use_cache)
 
     if not result.success or not result.data:
         error_msg = result.error or "未知错误"
@@ -456,6 +483,9 @@ async def get_fund_intraday(
     """
     获取基金日内分时数据
 
+    交易时段不使用缓存，直接从数据源获取实时数据。
+    非交易时段使用缓存以减少 API 调用。
+
     Args:
         code: 基金代码 (6位数字)
         manager: 数据源管理器依赖
@@ -463,8 +493,10 @@ async def get_fund_intraday(
     Returns:
         FundIntradayResponse: 基金日内分时数据
     """
+    # 交易时段不使用缓存，确保获取实时数据
+    use_cache = not _is_trading_hours()
     fund123_source = _get_fund123_source()
-    result = await fund123_source.fetch_intraday(code)
+    result = await fund123_source.fetch_intraday(code, use_cache=use_cache)
 
     if not result.success or result.data is None:
         error_msg = result.error or "未知错误"
