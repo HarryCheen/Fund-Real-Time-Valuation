@@ -4,6 +4,9 @@
 """
 
 
+from unittest.mock import patch
+
+import pandas as pd
 import pytest
 
 from src.datasources.sector_source import (
@@ -13,6 +16,170 @@ from src.datasources.sector_source import (
     SectorDataAggregator,
     SinaSectorDataSource,
 )
+
+
+class TestEastMoneySectorSpotSource:
+    """测试 akshare _spot_em 接口"""
+
+    @pytest.fixture
+    def sector_source(self):
+        """创建数据源实例"""
+        return EastMoneySectorSource()
+
+    @pytest.mark.asyncio
+    async def test_fetch_industry_spot(self, sector_source):
+        """测试获取行业板块实时行情"""
+        result = await sector_source.fetch(sector_type="industry")
+
+        assert result.source == "sector_eastmoney_akshare"
+        if result.success:
+            assert result.data is not None
+            assert "sectors" in result.data
+            assert result.data.get("type") == "industry"
+            assert len(result.data["sectors"]) > 0
+
+            # 验证数据字段
+            item = result.data["sectors"][0]
+            assert "name" in item
+            assert "code" in item
+            assert "price" in item
+            assert "change_percent" in item
+            assert "up_count" in item
+            assert "down_count" in item
+            assert "lead_stock" in item
+        else:
+            # 网络问题也接受
+            assert result.error is not None
+
+    @pytest.mark.asyncio
+    async def test_fetch_concept_spot(self, sector_source):
+        """测试获取概念板块实时行情"""
+        result = await sector_source.fetch(sector_type="concept")
+
+        assert result.source == "sector_eastmoney_akshare"
+        if result.success:
+            assert result.data is not None
+            assert "sectors" in result.data
+            assert result.data.get("type") == "concept"
+
+            # 概念板块通常数量更多
+            assert len(result.data["sectors"]) > 100
+        else:
+            assert result.error is not None
+
+    @pytest.mark.asyncio
+    async def test_invalid_sector_type(self, sector_source):
+        """测试无效的板块类型"""
+        result = await sector_source.fetch(sector_type="invalid")
+
+        assert result.success is False
+        assert "不支持" in result.error
+
+    @pytest.mark.asyncio
+    async def test_fetch_industry_spot_mocked(self):
+        """使用 mock 测试行业板块获取"""
+        mock_df = pd.DataFrame(
+            {
+                "排名": [1, 2],
+                "板块名称": ["银行", "保险"],
+                "板块代码": ["bk04804", "bk04805"],
+                "最新价": [100.0, 200.0],
+                "涨跌额": [1.0, 2.0],
+                "涨跌幅": [1.0, 2.0],
+                "总市值": [1000000, 2000000],
+                "换手率": [0.5, 0.6],
+                "上涨家数": [10, 20],
+                "下跌家数": [5, 8],
+                "领涨股票": ["招商银行", "中国平安"],
+                "领涨股票-涨跌幅": [3.0, 4.0],
+            }
+        )
+
+        with patch("akshare.stock_board_industry_spot_em", return_value=mock_df):
+            source = EastMoneySectorSource()
+            result = await source.fetch(sector_type="industry")
+
+            assert result.success is True
+            assert result.data is not None
+            assert len(result.data["sectors"]) == 2
+
+            # 验证数据字段映射
+            first_sector = result.data["sectors"][0]
+            assert first_sector["name"] == "银行"
+            assert first_sector["code"] == "bk04804"
+            assert first_sector["price"] == 100.0
+            assert first_sector["change_percent"] == 1.0
+            assert first_sector["up_count"] == 10
+            assert first_sector["down_count"] == 5
+            assert first_sector["lead_stock"] == "招商银行"
+            assert first_sector["lead_stock_change"] == 3.0
+
+    @pytest.mark.asyncio
+    async def test_fetch_concept_spot_mocked(self):
+        """使用 mock 测试概念板块获取"""
+        mock_df = pd.DataFrame(
+            {
+                "排名": [1, 2, 3],
+                "板块名称": ["人工智能", "ChatGPT", "机器人"],
+                "板块代码": ["bk04360", "bk04361", "bk04362"],
+                "最新价": [150.0, 180.0, 120.0],
+                "涨跌额": [5.0, 8.0, 3.0],
+                "涨跌幅": [3.5, 4.7, 2.6],
+                "总市值": [500000, 300000, 400000],
+                "换手率": [1.2, 1.5, 0.8],
+                "上涨家数": [50, 40, 30],
+                "下跌家数": [10, 8, 15],
+                "领涨股票": ["科大讯飞", "昆仑万维", "机器人"],
+                "领涨股票-涨跌幅": [10.0, 9.5, 8.0],
+            }
+        )
+
+        with patch("akshare.stock_board_concept_spot_em", return_value=mock_df):
+            source = EastMoneySectorSource()
+            result = await source.fetch(sector_type="concept")
+
+            assert result.success is True
+            assert result.data["type"] == "concept"
+            assert len(result.data["sectors"]) == 3
+
+            # 验证数据字段映射
+            first_sector = result.data["sectors"][0]
+            assert first_sector["name"] == "人工智能"
+            assert first_sector["change_percent"] == 3.5
+            assert first_sector["turnover_rate"] == 1.2
+
+    @pytest.mark.asyncio
+    async def test_fetch_empty_data_mocked(self):
+        """测试空数据返回"""
+        with patch("akshare.stock_board_industry_spot_em", return_value=pd.DataFrame()):
+            source = EastMoneySectorSource()
+            result = await source.fetch(sector_type="industry")
+
+            assert result.success is False
+            assert result.error is not None
+            assert "为空" in result.error
+
+    @pytest.mark.asyncio
+    async def test_fetch_api_error_mocked(self):
+        """测试 API 异常处理"""
+        with patch("akshare.stock_board_industry_spot_em", side_effect=Exception("API Error")):
+            source = EastMoneySectorSource()
+            result = await source.fetch(sector_type="industry")
+
+            assert result.success is False
+            assert result.error is not None
+
+    def test_get_status_spot_source(self, sector_source):
+        """测试状态获取"""
+        status = sector_source.get_status()
+
+        assert status["name"] == "sector_eastmoney_akshare"
+        assert status["type"] == "sector"
+        assert "supported_types" in status
+        assert "industry" in status["supported_types"]
+        assert "concept" in status["supported_types"]
+        assert status["api_version"] == "spot_em"
+        assert "cache_size" in status
 
 
 class TestSinaSectorDataSource:
@@ -222,6 +389,83 @@ class TestSectorConfig:
         """测试新浪板块数量"""
         source = SinaSectorDataSource()
         assert len(source.SECTOR_CONFIG) == 15
+
+
+class TestFundFlowSource:
+    """测试资金流向数据源"""
+
+    @pytest.mark.asyncio
+    async def test_fetch_industry_fund_flow(self, fund_flow_source):
+        """测试获取行业资金流向"""
+        result = await fund_flow_source.fetch(flow_type="industry", symbol="即时")
+
+        assert result.success is True
+        assert result.source == "fund_flow_ths_akshare"
+        assert len(result.data["items"]) > 0
+
+        # 验证数据字段
+        item = result.data["items"][0]
+        assert "name" in item
+        assert "net_inflow" in item
+        assert "inflow" in item
+        assert "outflow" in item
+        assert "change_percent" in item
+
+    @pytest.mark.asyncio
+    async def test_fetch_concept_fund_flow(self, fund_flow_source):
+        """测试获取概念资金流向"""
+        result = await fund_flow_source.fetch(flow_type="concept", symbol="即时")
+
+        assert result.success is True
+        assert len(result.data["items"]) > 0
+
+    @pytest.mark.asyncio
+    async def test_fetch_with_different_symbols(self, fund_flow_source):
+        """测试不同时间周期的资金流向"""
+        for symbol in ["3日排行", "5日排行"]:
+            result = await fund_flow_source.fetch(flow_type="industry", symbol=symbol)
+            assert result.success is True
+
+    @pytest.mark.asyncio
+    async def test_fetch_industry_fund_flow_mocked(self):
+        """使用 mock 测试行业资金流向"""
+        mock_df = pd.DataFrame({
+            "序号": [1, 2],
+            "行业": ["银行", "保险"],
+            "行业指数": [1000.0, 2000.0],
+            "行业-涨跌幅": [1.5, 2.0],
+            "流入资金": [100.0, 200.0],
+            "流出资金": [80.0, 150.0],
+            "净额": [20.0, 50.0],
+            "公司家数": [40, 30],
+            "领涨股": ["招商银行", "中国平安"],
+            "领涨股-涨跌幅": [3.0, 4.0],
+            "当前价": [10.0, 20.0],
+        })
+
+        with patch("akshare.stock_fund_flow_industry", return_value=mock_df):
+            from src.datasources.sector_source import FundFlowSource
+            source = FundFlowSource()
+            result = await source.fetch(flow_type="industry", symbol="即时")
+
+            assert result.success is True
+            assert len(result.data["items"]) == 2
+            assert result.data["items"][0]["name"] == "银行"
+            assert result.data["items"][0]["net_inflow"] == 20.0
+
+    @pytest.mark.asyncio
+    async def test_invalid_flow_type(self, fund_flow_source):
+        """测试无效的资金流向类型"""
+        result = await fund_flow_source.fetch(flow_type="invalid", symbol="即时")
+        assert result.success is False
+        assert "不支持" in result.error
+
+    @pytest.mark.asyncio
+    async def test_invalid_symbol(self, fund_flow_source):
+        """测试无效的 symbol 参数"""
+        result = await fund_flow_source.fetch(flow_type="industry", symbol="无效")
+        assert result.success is False
+        assert "不支持" in result.error
 
 
 if __name__ == "__main__":

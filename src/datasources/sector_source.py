@@ -577,6 +577,8 @@ __all__ = [
     "EastMoneyIndustryDetailSource",  # 行业板块详情
     "EastMoneyConceptDetailSource",  # 概念板块详情
     "EastMoneyDirectSource",  # EastMoney 直连 API (资金流向)
+    "FundFlowSource",  # 同花顺资金流向
+    "FundFlowAsSectorSource",  # 资金流向作为板块数据备用源
 ]
 
 
@@ -864,21 +866,35 @@ class EastMoneyDirectSource(DataSource):
 
 
 # ============================================================
-# AKShare 东方财富板块数据源
+# AKShare 东方财富板块数据源（实时行情）
 # ============================================================
 
 
 class EastMoneySectorSource(DataSource):
     """
-    东方财富板块数据源
+    东方财富板块数据源 - 基于 akshare 的 _spot_em 接口
 
     功能:
-    - 获取行业板块列表及涨跌幅
-    - 获取概念板块列表及涨跌幅
+    - 获取行业板块实时行情
+    - 获取概念板块实时行情
 
     接口:
-    - stock_board_industry_name_em() - 行业板块
-    - stock_board_concept_name_em() - 概念板块
+    - stock_board_industry_spot_em() - 行业板块实时行情
+    - stock_board_concept_spot_em() - 概念板块实时行情
+
+    数据字段映射:
+    - 排名 -> rank
+    - 板块名称 -> name
+    - 板块代码 -> code
+    - 最新价 -> price
+    - 涨跌额 -> change
+    - 涨跌幅 -> change_percent
+    - 总市值 -> total_market_value
+    - 换手率 -> turnover_rate
+    - 上涨家数 -> up_count
+    - 下跌家数 -> down_count
+    - 领涨股票 -> lead_stock
+    - 领涨股票-涨跌幅 -> lead_stock_change
     """
 
     def __init__(self, timeout: float = 15.0):
@@ -888,9 +904,13 @@ class EastMoneySectorSource(DataSource):
         self._cache: dict[str, dict[str, Any]] = {}
         self._cache_timeout = 60.0
 
+    def log(self, message: str) -> None:
+        """日志方法"""
+        logger.info(f"[EastMoneySectorSource] {message}")
+
     async def fetch(self, sector_type: str = "industry") -> DataSourceResult:
         """
-        获取板块数据
+        获取板块实时行情
 
         Args:
             sector_type: 板块类型 ("industry" 行业板块, "concept" 概念板块)
@@ -911,10 +931,13 @@ class EastMoneySectorSource(DataSource):
         try:
             import akshare as ak
 
+            loop = asyncio.get_event_loop()
+
             if sector_type == "industry":
-                data = await self._fetch_industry(ak)
+                # 使用 run_in_executor 包装同步调用
+                df = await loop.run_in_executor(None, ak.stock_board_industry_spot_em)
             elif sector_type == "concept":
-                data = await self._fetch_concept(ak)
+                df = await loop.run_in_executor(None, ak.stock_board_concept_spot_em)
             else:
                 return DataSourceResult(
                     success=False,
@@ -924,7 +947,8 @@ class EastMoneySectorSource(DataSource):
                     metadata={"sector_type": sector_type},
                 )
 
-            if data:
+            if df is not None and not df.empty:
+                data = self._parse_dataframe(df, sector_type)
                 data["_cache_time"] = time.time()
                 self._cache[cache_key] = data
                 self._record_success()
@@ -933,7 +957,7 @@ class EastMoneySectorSource(DataSource):
                     data=data,
                     timestamp=time.time(),
                     source=self.name,
-                    metadata={"sector_type": sector_type},
+                    metadata={"sector_type": sector_type, "count": len(data.get("sectors", []))},
                 )
 
             return DataSourceResult(
@@ -953,63 +977,70 @@ class EastMoneySectorSource(DataSource):
                 metadata={"sector_type": sector_type, "error_type": "ImportError"},
             )
         except Exception as e:
+            logger.error(f"获取板块数据失败: {e}")
             return self._handle_error(e, self.name)
 
-    async def _fetch_industry(self, ak) -> dict[str, Any] | None:
-        """获取行业板块数据"""
-        try:
-            df = ak.stock_board_industry_name_em()
-            if df is not None and not df.empty:
-                sectors = []
-                for _, row in df.iterrows():
-                    sectors.append(
-                        {
-                            "rank": row.get("排名", 0),
-                            "name": row.get("板块名称", ""),
-                            "code": row.get("板块代码", ""),
-                            "price": row.get("最新价", 0),
-                            "change": row.get("涨跌额", 0),
-                            "change_percent": row.get("涨跌幅", 0),
-                            "total_market": row.get("总市值", ""),
-                            "turnover": row.get("换手率", ""),
-                            "up_count": row.get("上涨家数", 0),
-                            "down_count": row.get("下跌家数", 0),
-                            "lead_stock": row.get("领涨股票", ""),
-                            "lead_change": row.get("领涨股票-涨跌幅", 0),
-                        }
-                    )
-                return {"type": "industry", "sectors": sectors, "count": len(sectors)}
-        except Exception:
-            pass
-        return None
+    def _parse_dataframe(self, df, sector_type: str) -> dict[str, Any]:
+        """
+        解析 DataFrame 返回统一格式
 
-    async def _fetch_concept(self, ak) -> dict[str, Any] | None:
-        """获取概念板块数据"""
+        Args:
+            df: akshare 返回的 DataFrame
+            sector_type: 板块类型
+
+        Returns:
+            Dict: 统一格式的板块数据
+        """
+        sectors = []
+        for _, row in df.iterrows():
+            item = {
+                "rank": self._safe_int(row.get("排名", 0)),
+                "name": str(row.get("板块名称", "")),
+                "code": str(row.get("板块代码", "")),
+                "price": self._safe_float(row.get("最新价", 0)),
+                "change": self._safe_float(row.get("涨跌额", 0)),
+                "change_percent": self._safe_float(row.get("涨跌幅", 0)),
+                "total_market_value": self._safe_float(row.get("总市值", 0)),
+                "turnover_rate": self._safe_float(row.get("换手率", 0)),
+                "up_count": self._safe_int(row.get("上涨家数", 0)),
+                "down_count": self._safe_int(row.get("下跌家数", 0)),
+                "lead_stock": str(row.get("领涨股票", "")),
+                "lead_stock_change": self._safe_float(row.get("领涨股票-涨跌幅", 0)),
+                "sector_type": sector_type,
+            }
+            # 兼容字段名（供前端使用）
+            item["total_market"] = item["total_market_value"]
+            item["turnover"] = item["turnover_rate"]
+            item["lead_change"] = item["lead_stock_change"]
+            sectors.append(item)
+
+        # 使用最近交易日作为时间戳
+        trading_day = get_last_trading_day()
+
+        return {
+            "type": sector_type,
+            "sectors": sectors,
+            "count": len(sectors),
+            "timestamp": trading_day.timestamp(),
+        }
+
+    def _safe_float(self, value: Any) -> float:
+        """安全转换为浮点数"""
+        if value is None:
+            return 0.0
         try:
-            df = ak.stock_board_concept_name_em()
-            if df is not None and not df.empty:
-                sectors = []
-                for _, row in df.iterrows():
-                    sectors.append(
-                        {
-                            "rank": row.get("排名", 0),
-                            "name": row.get("板块名称", ""),
-                            "code": row.get("板块代码", ""),
-                            "price": row.get("最新价", 0),
-                            "change": row.get("涨跌额", 0),
-                            "change_percent": row.get("涨跌幅", 0),
-                            "total_market": row.get("总市值", ""),
-                            "turnover": row.get("换手率", ""),
-                            "up_count": row.get("上涨家数", 0),
-                            "down_count": row.get("下跌家数", 0),
-                            "lead_stock": row.get("领涨股票", ""),
-                            "lead_change": row.get("领涨股票-涨跌幅", 0),
-                        }
-                    )
-                return {"type": "concept", "sectors": sectors, "count": len(sectors)}
-        except Exception:
-            pass
-        return None
+            return float(value)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def _safe_int(self, value: Any) -> int:
+        """安全转换为整数"""
+        if value is None:
+            return 0
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return 0
 
     async def fetch_batch(self, sector_types: list[str]) -> list[DataSourceResult]:
         """批量获取板块数据"""
@@ -1053,11 +1084,12 @@ class EastMoneySectorSource(DataSource):
         status["cache_size"] = len(self._cache)
         status["cache_timeout"] = self._cache_timeout
         status["supported_types"] = ["industry", "concept"]
+        status["api_version"] = "spot_em"
         return status
 
     async def health_check(self) -> bool:
         """
-        健康检查 - 东方财富板块接口
+        健康检查 - 东方财富板块实时行情接口
 
         Returns:
             bool: 健康状态
@@ -1067,14 +1099,15 @@ class EastMoneySectorSource(DataSource):
 
             loop = asyncio.get_event_loop()
 
-            # 尝试获取行业板块数据
-            df = await loop.run_in_executor(None, lambda: ak.stock_board_industry_name_em())
+            # 尝试获取行业板块实时数据
+            df = await loop.run_in_executor(None, ak.stock_board_industry_spot_em)
 
             # 验证返回数据
             if df is not None and not df.empty:
                 return True
             return False
-        except Exception:
+        except Exception as e:
+            logger.warning(f"健康检查失败: {e}")
             return False
 
 
@@ -1199,6 +1232,299 @@ class EastMoneyIndustryDetailSource(DataSource):
         self._cache.clear()
 
 
+# ============================================================
+# 同花顺资金流向数据源 - 基于 akshare
+# ============================================================
+
+
+class FundFlowSource(DataSource):
+    """
+    资金流向数据源 - 基于 akshare 的同花顺数据中心接口
+
+    功能:
+    - 获取行业资金流向数据
+    - 获取概念资金流向数据
+
+    接口:
+    - stock_fund_flow_industry(symbol) - 行业资金流向
+    - stock_fund_flow_concept(symbol) - 概念资金流向
+
+    symbol 参数:
+    - "即时" - 当日实时资金流向
+    - "3日排行" - 3日累计资金流向
+    - "5日排行" - 5日累计资金流向
+    - "10日排行" - 10日累计资金流向
+    - "20日排行" - 20日累计资金流向
+
+    数据来源: 同花顺数据中心
+    """
+
+    # 支持的 symbol 参数
+    VALID_SYMBOLS = ["即时", "3日排行", "5日排行", "10日排行", "20日排行"]
+
+    def __init__(self, timeout: float = 15.0):
+        super().__init__(
+            name="fund_flow_ths_akshare",
+            source_type=DataSourceType.SECTOR,
+            timeout=timeout,
+        )
+        self._cache: dict[str, dict[str, Any]] = {}
+        self._cache_timeout = 60.0
+
+    def log(self, message: str) -> None:
+        """日志方法"""
+        logger.info(f"[FundFlowSource] {message}")
+
+    async def fetch(self, flow_type: str = "industry", symbol: str = "即时") -> DataSourceResult:
+        """
+        获取资金流向数据
+
+        Args:
+            flow_type: 资金流向类型
+                - "industry": 行业资金流向
+                - "concept": 概念资金流向
+            symbol: 时间周期
+                - "即时": 当日实时
+                - "3日排行": 3日累计
+                - "5日排行": 5日累计
+                - "10日排行": 10日累计
+                - "20日排行": 20日累计
+
+        Returns:
+            DataSourceResult: 资金流向数据
+        """
+        # 参数验证
+        if flow_type not in ["industry", "concept"]:
+            return DataSourceResult(
+                success=False,
+                error=f"不支持的流向类型: {flow_type}，支持: industry, concept",
+                timestamp=time.time(),
+                source=self.name,
+                metadata={"flow_type": flow_type, "symbol": symbol},
+            )
+
+        if symbol not in self.VALID_SYMBOLS:
+            return DataSourceResult(
+                success=False,
+                error=f"不支持的 symbol 参数: {symbol}，支持: {', '.join(self.VALID_SYMBOLS)}",
+                timestamp=time.time(),
+                source=self.name,
+                metadata={"flow_type": flow_type, "symbol": symbol},
+            )
+
+        # 检查缓存
+        cache_key = f"{flow_type}_{symbol}"
+        if self._is_cache_valid(cache_key):
+            return DataSourceResult(
+                success=True,
+                data=self._cache[cache_key],
+                timestamp=self._cache[cache_key].get("_cache_time", time.time()),
+                source=self.name,
+                metadata={"flow_type": flow_type, "symbol": symbol, "from_cache": True},
+            )
+
+        try:
+            import akshare as ak
+
+            loop = asyncio.get_event_loop()
+
+            if flow_type == "industry":
+                df = await loop.run_in_executor(
+                    None,
+                    lambda: ak.stock_fund_flow_industry(symbol=symbol),
+                )
+            else:  # concept
+                df = await loop.run_in_executor(
+                    None,
+                    lambda: ak.stock_fund_flow_concept(symbol=symbol),
+                )
+
+            if df is not None and not df.empty:
+                data = self._parse_dataframe(df, flow_type, symbol)
+                data["_cache_time"] = time.time()
+                self._cache[cache_key] = data
+                self._record_success()
+                return DataSourceResult(
+                    success=True,
+                    data=data,
+                    timestamp=time.time(),
+                    source=self.name,
+                    metadata={
+                        "flow_type": flow_type,
+                        "symbol": symbol,
+                        "count": len(data.get("items", [])),
+                    },
+                )
+
+            return DataSourceResult(
+                success=False,
+                error="获取资金流向数据为空",
+                timestamp=time.time(),
+                source=self.name,
+                metadata={"flow_type": flow_type, "symbol": symbol},
+            )
+
+        except ImportError:
+            return DataSourceResult(
+                success=False,
+                error="akshare 未安装，请运行: pip install akshare",
+                timestamp=time.time(),
+                source=self.name,
+                metadata={"flow_type": flow_type, "symbol": symbol, "error_type": "ImportError"},
+            )
+        except Exception as e:
+            logger.error(f"获取资金流向失败: {e}")
+            return self._handle_error(e, self.name)
+
+    def _parse_dataframe(self, df, flow_type: str, symbol: str) -> dict[str, Any]:
+        """
+        解析 DataFrame 返回统一格式
+
+        返回字段:
+        - 序号 -> rank
+        - 行业 -> name (概念板块也是"行业"列)
+        - 行业指数 -> index_value
+        - 行业-涨跌幅 -> change_percent
+        - 流入资金 -> inflow
+        - 流出资金 -> outflow
+        - 净额 -> net_inflow
+        - 公司家数 -> company_count
+        - 领涨股 -> lead_stock
+        - 领涨股-涨跌幅 -> lead_stock_change
+        - 当前价 -> price
+
+        Args:
+            df: akshare 返回的 DataFrame
+            flow_type: 流向类型
+            symbol: 时间周期
+
+        Returns:
+            Dict: 统一格式的资金流向数据
+        """
+        items = []
+        for _, row in df.iterrows():
+            item = {
+                "rank": self._safe_int(row.get("序号", 0)),
+                "name": str(row.get("行业", "")),
+                "index_value": self._safe_float(row.get("行业指数", 0)),
+                "change_percent": self._safe_float(row.get("行业-涨跌幅", 0)),
+                "inflow": self._safe_float(row.get("流入资金", 0)),
+                "outflow": self._safe_float(row.get("流出资金", 0)),
+                "net_inflow": self._safe_float(row.get("净额", 0)),
+                "company_count": self._safe_int(row.get("公司家数", 0)),
+                "lead_stock": str(row.get("领涨股", "")),
+                "lead_stock_change": self._safe_float(row.get("领涨股-涨跌幅", 0)),
+                "price": self._safe_float(row.get("当前价", 0)),
+                "flow_type": flow_type,
+            }
+            items.append(item)
+
+        # 使用最近交易日作为时间戳
+        trading_day = get_last_trading_day()
+
+        return {
+            "type": flow_type,
+            "symbol": symbol,
+            "items": items,
+            "count": len(items),
+            "timestamp": trading_day.timestamp(),
+        }
+
+    def _safe_float(self, value: Any) -> float:
+        """安全转换为浮点数"""
+        if value is None:
+            return 0.0
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def _safe_int(self, value: Any) -> int:
+        """安全转换为整数"""
+        if value is None:
+            return 0
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return 0
+
+    async def fetch_batch(
+        self, params_list: list[dict[str, str]]
+    ) -> list[DataSourceResult]:
+        """批量获取资金流向数据"""
+
+        async def fetch_one(params: dict[str, str]) -> DataSourceResult:
+            flow_type = params.get("flow_type", "industry")
+            symbol = params.get("symbol", "即时")
+            return await self.fetch(flow_type, symbol)
+
+        tasks = [fetch_one(params) for params in params_list]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                processed_results.append(
+                    DataSourceResult(
+                        success=False,
+                        error=str(result),
+                        timestamp=time.time(),
+                        source=self.name,
+                        metadata=params_list[i] if i < len(params_list) else {},
+                    )
+                )
+            else:
+                processed_results.append(result)
+        return processed_results
+
+    def _is_cache_valid(self, cache_key: str) -> bool:
+        """检查缓存是否有效"""
+        if cache_key not in self._cache:
+            return False
+        cache_time = self._cache[cache_key].get("_cache_time", 0)
+        return (time.time() - cache_time) < self._cache_timeout
+
+    def clear_cache(self):
+        """清空缓存"""
+        self._cache.clear()
+
+    def get_status(self) -> dict[str, Any]:
+        """获取数据源状态"""
+        status = super().get_status()
+        status["cache_size"] = len(self._cache)
+        status["cache_timeout"] = self._cache_timeout
+        status["supported_flow_types"] = ["industry", "concept"]
+        status["supported_symbols"] = self.VALID_SYMBOLS
+        status["data_source"] = "同花顺数据中心"
+        return status
+
+    async def health_check(self) -> bool:
+        """
+        健康检查 - 同花顺资金流向接口
+
+        Returns:
+            bool: 健康状态
+        """
+        try:
+            import akshare as ak
+
+            loop = asyncio.get_event_loop()
+
+            # 尝试获取行业资金流向即时数据
+            df = await loop.run_in_executor(
+                None,
+                lambda: ak.stock_fund_flow_industry(symbol="即时"),
+            )
+
+            # 验证返回数据
+            if df is not None and not df.empty:
+                return True
+            return False
+        except Exception as e:
+            logger.warning(f"健康检查失败: {e}")
+            return False
+
+
 class EastMoneyConceptDetailSource(DataSource):
     """
     概念板块详情数据源
@@ -1316,3 +1642,260 @@ class EastMoneyConceptDetailSource(DataSource):
 
     def clear_cache(self):
         self._cache.clear()
+
+
+# End of EastMoneyConceptDetailSource class
+# 当 spot_em 和 name_em 接口失败时使用
+# ============================================================
+
+
+class FundFlowAsSectorSource(DataSource):
+    """
+    资金流向数据源作为板块数据备用
+
+    功能:
+    - 当 stock_board_industry_spot_em 等接口失败时，使用资金流向数据作为备选
+    - 将资金流向数据转换为板块数据格式
+    - 数据包含: 板块名称、涨跌幅、领涨股、当前价等
+
+    接口:
+    - stock_fund_flow_industry - 行业资金流向
+    - stock_fund_flow_concept - 概念资金流向
+
+    优势: 这两个接口在 spot_em/name_em 失败时仍然可用
+    """
+
+    def __init__(self, timeout: float = 15.0):
+        super().__init__(
+            name="sector_fund_flow_as_sector",
+            source_type=DataSourceType.SECTOR,
+            timeout=timeout,
+        )
+        self._cache: dict[str, dict[str, Any]] = {}
+        self._cache_timeout = 60.0
+
+    def log(self, message: str) -> None:
+        """日志方法"""
+        logger.info(f"[FundFlowAsSectorSource] {message}")
+
+    async def fetch(self, sector_type: str = "industry") -> DataSourceResult:
+        """
+        获取板块数据（通过资金流向接口）
+
+        Args:
+            sector_type: 板块类型 ("industry" 行业板块, "concept" 概念板块)
+
+        Returns:
+            DataSourceResult: 板块数据结果
+        """
+        cache_key = sector_type
+        if self._is_cache_valid(cache_key):
+            return DataSourceResult(
+                success=True,
+                data=self._cache[cache_key],
+                timestamp=self._cache[cache_key].get("_cache_time", time.time()),
+                source=self.name,
+                metadata={"sector_type": sector_type, "from_cache": True},
+            )
+
+        try:
+            import akshare as ak
+
+            loop = asyncio.get_event_loop()
+
+            if sector_type == "industry":
+                df = await loop.run_in_executor(
+                    None,
+                    lambda: ak.stock_fund_flow_industry(symbol="即时"),
+                )
+            elif sector_type == "concept":
+                df = await loop.run_in_executor(
+                    None,
+                    lambda: ak.stock_fund_flow_concept(symbol="即时"),
+                )
+            else:
+                return DataSourceResult(
+                    success=False,
+                    error=f"不支持的板块类型: {sector_type}",
+                    timestamp=time.time(),
+                    source=self.name,
+                    metadata={"sector_type": sector_type},
+                )
+
+            if df is not None and not df.empty:
+                data = self._parse_dataframe(df, sector_type)
+                data["_cache_time"] = time.time()
+                self._cache[cache_key] = data
+                self._record_success()
+                return DataSourceResult(
+                    success=True,
+                    data=data,
+                    timestamp=time.time(),
+                    source=self.name,
+                    metadata={"sector_type": sector_type, "count": len(data.get("sectors", []))},
+                )
+
+            return DataSourceResult(
+                success=False,
+                error="获取资金流向数据为空",
+                timestamp=time.time(),
+                source=self.name,
+                metadata={"sector_type": sector_type},
+            )
+
+        except ImportError:
+            return DataSourceResult(
+                success=False,
+                error="akshare 未安装",
+                timestamp=time.time(),
+                source=self.name,
+                metadata={"sector_type": sector_type, "error_type": "ImportError"},
+            )
+        except Exception as e:
+            logger.error(f"获取资金流向作为板块数据失败: {e}")
+            return self._handle_error(e, self.name)
+
+    def _parse_dataframe(self, df, sector_type: str) -> dict[str, Any]:
+        """
+        解析资金流向 DataFrame 转换为板块数据格式
+
+        字段映射:
+        - 序号 -> rank
+        - 行业 -> name (板块名称)
+        - 行业指数 -> price (板块指数作为价格)
+        - 行业-涨跌幅 -> change_percent
+        - 净额 -> main_inflow (主力净流入)
+        - 领涨股 -> lead_stock
+        - 领涨股-涨跌幅 -> lead_stock_change
+        - 当前价 -> extra_price
+        """
+        sectors = []
+        for _, row in df.iterrows():
+            item = {
+                "rank": self._safe_int(row.get("序号", 0)),
+                "name": str(row.get("行业", "")),
+                "code": "",  # 资金流向接口没有板块代码
+                "price": self._safe_float(row.get("行业指数", 0)),
+                "change": self._calc_change(
+                    self._safe_float(row.get("行业指数", 0)),
+                    self._safe_float(row.get("行业-涨跌幅", 0)),
+                ),
+                "change_percent": self._safe_float(row.get("行业-涨跌幅", 0)),
+                "total_market_value": 0,  # 资金流向接口没有总市值
+                "turnover_rate": 0,  # 资金流向接口没有换手率
+                "up_count": 0,  # 资金流向接口没有上涨家数
+                "down_count": 0,  # 资金流向接口没有下跌家数
+                "lead_stock": str(row.get("领涨股", "")),
+                "lead_stock_change": self._safe_float(row.get("领涨股-涨跌幅", 0)),
+                "sector_type": sector_type,
+                # 资金流向特有字段
+                "main_inflow": self._safe_float(row.get("净额", 0)),
+                "inflow": self._safe_float(row.get("流入资金", 0)),
+                "outflow": self._safe_float(row.get("流出资金", 0)),
+                "company_count": self._safe_int(row.get("公司家数", 0)),
+                # 兼容字段
+                "total_market": 0,
+                "turnover": 0,
+                "lead_change": self._safe_float(row.get("领涨股-涨跌幅", 0)),
+            }
+            sectors.append(item)
+
+        # 使用最近交易日作为时间戳
+        trading_day = get_last_trading_day()
+
+        return {
+            "type": sector_type,
+            "sectors": sectors,
+            "count": len(sectors),
+            "timestamp": trading_day.timestamp(),
+            "data_source": "fund_flow",  # 标记数据来源
+        }
+
+    def _safe_float(self, value: Any) -> float:
+        """安全转换为浮点数"""
+        if value is None:
+            return 0.0
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def _safe_int(self, value: Any) -> int:
+        """安全转换为整数"""
+        if value is None:
+            return 0
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return 0
+
+    def _calc_change(self, price: float, change_pct: float) -> float:
+        """计算涨跌额"""
+        if not price or not change_pct:
+            return 0.0
+        return round(price * change_pct / 100, 2)
+
+    async def fetch_batch(self, sector_types: list[str]) -> list[DataSourceResult]:
+        """批量获取板块数据"""
+
+        async def fetch_one(stype: str) -> DataSourceResult:
+            return await self.fetch(stype)
+
+        tasks = [fetch_one(stype) for stype in sector_types]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                processed_results.append(
+                    DataSourceResult(
+                        success=False,
+                        error=str(result),
+                        timestamp=time.time(),
+                        source=self.name,
+                        metadata={"sector_type": sector_types[i]},
+                    )
+                )
+            else:
+                processed_results.append(result)
+        return processed_results
+
+    def _is_cache_valid(self, cache_key: str) -> bool:
+        """检查缓存是否有效"""
+        if cache_key not in self._cache:
+            return False
+        cache_time = self._cache[cache_key].get("_cache_time", 0)
+        return (time.time() - cache_time) < self._cache_timeout
+
+    def clear_cache(self):
+        """清空缓存"""
+        self._cache.clear()
+
+    def get_status(self) -> dict[str, Any]:
+        """获取数据源状态"""
+        status = super().get_status()
+        status["cache_size"] = len(self._cache)
+        status["cache_timeout"] = self._cache_timeout
+        status["supported_types"] = ["industry", "concept"]
+        status["description"] = "资金流向数据作为板块数据备用源"
+        return status
+
+    async def health_check(self) -> bool:
+        """健康检查"""
+        try:
+            import akshare as ak
+
+            loop = asyncio.get_event_loop()
+
+            # 尝试获取行业资金流向数据
+            df = await loop.run_in_executor(
+                None,
+                lambda: ak.stock_fund_flow_industry(symbol="即时"),
+            )
+
+            if df is not None and not df.empty:
+                return True
+            return False
+        except Exception as e:
+            logger.warning(f"健康检查失败: {e}")
+            return False

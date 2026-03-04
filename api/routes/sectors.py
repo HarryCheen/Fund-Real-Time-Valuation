@@ -49,17 +49,22 @@ async def get_industry_sectors(
 ) -> SectorListData:
     """
     获取 A 股行业板块列表
-    优先使用 EastMoney 直连 API（包含资金流向数据），降级使用 AKShare
+    优先使用 AKShare _spot_em 接口（实时行情），降级使用 EastMoney 直连 API
+    最后降级使用资金流向数据作为备用
     """
     current_time = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     sector_type = "industry"
 
-    # 优先使用 EastMoney 直连 API（包含资金流向）
-    result = await manager.fetch_with_source("sector_eastmoney_direct", "industry")
+    # 优先使用 AKShare _spot_em 接口（实时行情，数据更完整）
+    result = await manager.fetch_with_source("sector_eastmoney_akshare", "industry")
 
     if not result.success or not result.data:
-        # Fallback to AKShare
-        result = await manager.fetch_with_source("sector_eastmoney_akshare", "industry")
+        # Fallback to EastMoney 直连 API（包含资金流向）
+        result = await manager.fetch_with_source("sector_eastmoney_direct", "industry")
+
+    if not result.success or not result.data:
+        # Fallback to 资金流向作为板块数据源（更稳定）
+        result = await manager.fetch_with_source("sector_fund_flow_as_sector", "industry")
 
     if not result.success or not result.data:
         # 最后尝试 Sina
@@ -151,15 +156,19 @@ async def get_industry_sectors(
 async def get_concept_sectors(
     manager: DataSourceManager = Depends(DataSourceDependency()),
 ) -> SectorListData:
-    """获取 A 股概念板块列表（包含资金流向数据）"""
+    """获取 A 股概念板块列表（实时行情数据）"""
     current_time = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-    # 优先使用 EastMoney 直连 API（包含资金流向）
-    result = await manager.fetch_with_source("sector_eastmoney_direct", "concept")
+    # 优先使用 AKShare _spot_em 接口（实时行情，数据更完整）
+    result = await manager.fetch_with_source("sector_eastmoney_akshare", "concept")
 
     if not result.success or not result.data:
-        # Fallback to AKShare
-        result = await manager.fetch_with_source("sector_eastmoney_akshare", "concept")
+        # Fallback to EastMoney 直连 API（包含资金流向）
+        result = await manager.fetch_with_source("sector_eastmoney_direct", "concept")
+
+    if not result.success or not result.data:
+        # Fallback to 资金流向作为板块数据源（更稳定）
+        result = await manager.fetch_with_source("sector_fund_flow_as_sector", "concept")
 
     if not result.success or not result.data:
         error_msg = result.error or "数据源暂时不可用"
@@ -335,3 +344,111 @@ async def get_concept_detail(
         }
 
     return {"sectorName": sector_name, "stocks": [], "count": 0, "timestamp": current_time}
+
+
+# ============================================================
+# 同花顺资金流向 API 端点
+# ============================================================
+
+
+class FundFlowData(TypedDict):
+    """资金流向响应数据结构"""
+
+    items: list[dict]
+    timestamp: str
+    type: str
+    symbol: str
+
+
+@router.get(
+    "/fund-flow/{flow_type}",
+    response_model=FundFlowData,
+    summary="获取资金流向数据",
+    description="获取行业或概念板块的资金流向数据（来源于同花顺数据中心）",
+    responses={
+        200: {"description": "成功获取资金流向数据"},
+        400: {"model": ErrorResponse, "description": "参数错误"},
+        500: {"model": ErrorResponse, "description": "服务器错误"},
+    },
+)
+async def get_fund_flow(
+    flow_type: str,
+    symbol: str = "即时",
+    manager: DataSourceManager = Depends(DataSourceDependency()),
+) -> FundFlowData:
+    """
+    获取资金流向数据
+
+    Args:
+        flow_type: 资金流向类型
+            - industry: 行业资金流向
+            - concept: 概念资金流向
+        symbol: 时间周期
+            - 即时: 当日实时
+            - 3日排行: 3日累计
+            - 5日排行: 5日累计
+            - 10日排行: 10日累计
+            - 20日排行: 20日累计
+    """
+    # 参数验证
+    if flow_type not in ["industry", "concept"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"无效的流向类型: {flow_type}，支持: industry, concept",
+        )
+
+    valid_symbols = ["即时", "3日排行", "5日排行", "10日排行", "20日排行"]
+    if symbol not in valid_symbols:
+        raise HTTPException(
+            status_code=400,
+            detail=f"无效的时间周期: {symbol}，支持: {', '.join(valid_symbols)}",
+        )
+
+    current_time = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    # 获取资金流向数据
+    result = await manager.fetch_with_source("fund_flow_ths_akshare", flow_type, symbol)
+
+    if not result.success or not result.data:
+        error_msg = result.error or "数据源暂时不可用"
+        raise HTTPException(status_code=503, detail=f"暂时无法获取资金流向数据: {error_msg}")
+
+    data = result.data
+
+    # 使用数据源的 timestamp
+    data_timestamp = data.get("timestamp") if isinstance(data, dict) else None
+    if data_timestamp:
+        current_time = (
+            datetime.fromtimestamp(data_timestamp, timezone.utc).isoformat().replace("+00:00", "Z")
+        )
+
+    if isinstance(data, dict):
+        items_data = data.get("items", [])
+
+        # 转换数据格式
+        items = []
+        for item in items_data:
+            items.append(
+                {
+                    "rank": item.get("rank"),
+                    "name": item.get("name"),
+                    "indexValue": item.get("index_value"),
+                    "changePercent": item.get("change_percent"),
+                    "inflow": item.get("inflow"),
+                    "outflow": item.get("outflow"),
+                    "netInflow": item.get("net_inflow"),
+                    "companyCount": item.get("company_count"),
+                    "leadStock": item.get("lead_stock"),
+                    "leadStockChange": item.get("lead_stock_change"),
+                    "price": item.get("price"),
+                }
+            )
+
+        return {
+            "items": items,
+            "timestamp": current_time,
+            "type": data.get("type", flow_type),
+            "symbol": data.get("symbol", symbol),
+        }
+
+    return {"items": [], "timestamp": current_time, "type": flow_type, "symbol": symbol}

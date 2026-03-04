@@ -138,3 +138,10 @@ def sample_commodities():
 def temp_dir(tmp_path):
     """返回临时目录路径"""
     return tmp_path
+
+
+@pytest.fixture
+async def fund_flow_source():
+    """资金流向数据源 fixture"""
+    from src.datasources.sector_source import FundFlowSource
+    return FundFlowSource()
