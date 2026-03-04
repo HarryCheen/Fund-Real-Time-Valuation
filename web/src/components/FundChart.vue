@@ -86,12 +86,48 @@ const parseTimeToTimestamp = (timeStr: string): number => {
   return Math.floor(Date.now() / 1000);
 };
 
+// 判断是否为日内分时数据 (FundIntraday)
+// FundIntraday 有 price 字段，FundHistory 有 close 字段
+const isIntradayData = (data: FundHistory[] | FundIntraday[]): boolean => {
+  if (!data || data.length === 0) return false;
+  const firstItem = data[0];
+  return 'price' in firstItem && !('close' in firstItem);
+};
+
+// 计算日内分时数据的x轴范围 (09:30 - 15:00)
+const getIntradayXRange = (data: FundHistory[] | FundIntraday[]): { min: number; max: number } | null => {
+  if (!isIntradayData(data)) return null;
+
+  // 获取第一个数据点的时间来获取日期
+  const firstItem = data[0] as FundIntraday;
+  const timeStr = firstItem.time;
+
+  // 解析 "HH:mm" 格式
+  const timeMatch = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+  if (!timeMatch) return null;
+
+  // 使用当前日期
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const day = now.getDate();
+
+  // 计算 min (09:30) 和 max (15:00) 的 Unix 时间戳
+  const minTs = Math.floor(new Date(year, month, day, 9, 30, 0).getTime() / 1000);
+  const maxTs = Math.floor(new Date(year, month, day, 15, 0, 0).getTime() / 1000);
+
+  return { min: minTs, max: maxTs };
+};
+
 const initChart = () => {
   if (!chartContainer.value) return;
 
   if (uplotInstance) return;
   
   chartContainer.value.innerHTML = '';
+
+  // 计算日内分时数据的x轴范围 (09:30 - 15:00)
+  const xRange = getIntradayXRange(props.data);
 
   try {
     uplotInstance = new uPlot({
@@ -117,6 +153,7 @@ const initChart = () => {
       scales: {
         x: {
           time: true,
+          ...(xRange && { min: xRange.min, max: xRange.max }),
         },
         y: {
           auto: true,
@@ -248,16 +285,32 @@ const updateColor = () => {
   }
 };
 
+// 缓存数据类型，用于检测变化
+let lastDataType: 'history' | 'intraday' | null = null;
+
 // 监听数据变化
 watch(() => props.data, (newData) => {
-  // 如果图表未初始化但有数据，先初始化图表
+  // 如果没有图表实例但有数据，先初始化图表
   if (!uplotInstance && chartContainer.value && newData && newData.length > 0) {
     initChart();
+    // 记录初始数据类型
+    lastDataType = isIntradayData(newData) ? 'intraday' : 'history';
   }
 
   if (!uplotInstance) return;
 
   if (!newData || newData.length === 0) return;
+
+  // 检测数据类型是否变化，如果变化则需要重新初始化图表
+  const currentDataType = isIntradayData(newData) ? 'intraday' : 'history';
+  if (lastDataType !== null && lastDataType !== currentDataType) {
+    // 数据类型变化，销毁并重新创建图表
+    uplotInstance.destroy();
+    uplotInstance = null;
+    lastDataType = null;
+    initChart();
+    lastDataType = currentDataType;
+  }
 
   // 更新颜色
   updateColor();

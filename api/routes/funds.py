@@ -572,7 +572,7 @@ async def get_fund_intraday_by_date(
 
 @router.get(
     "/watchlist",
-    response_model=dict,
+    response_model=WatchlistResponse,
     summary="获取自选基金列表",
     description="获取当前用户的自选基金列表",
     responses={
@@ -604,7 +604,7 @@ async def get_watchlist() -> WatchlistResponse:
 
 @router.post(
     "/watchlist",
-    response_model=dict,
+    response_model=OperationResponse,
     summary="添加自选基金",
     description="将基金添加到自选列表",
     responses={
@@ -658,7 +658,7 @@ async def add_to_watchlist(
 
 @router.put(
     "/{code}/holding",
-    response_model=dict,
+    response_model=OperationResponse,
     summary="标记/取消持有基金",
     description="将基金标记为持有或取消持有",
     responses={
@@ -744,7 +744,7 @@ async def toggle_holding(
 
 @router.delete(
     "/watchlist/{code}",
-    response_model=dict,
+    response_model=OperationResponse,
     summary="删除自选基金",
     description="从自选列表中移除基金",
     responses={

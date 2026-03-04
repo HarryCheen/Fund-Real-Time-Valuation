@@ -638,8 +638,6 @@ def create_default_manager(
         EastMoneyDirectSource,
         EastMoneyIndustryDetailSource,
         EastMoneySectorSource,
-        FundFlowAsSectorSource,
-        FundFlowSource,
         SinaSectorDataSource,
     )
 
@@ -745,33 +743,6 @@ def create_default_manager(
             source_type=DataSourceType.SECTOR,
             enabled=True,
             priority=10,
-        ),
-    )
-
-    # === 新增同花顺资金流向数据源 (akshare) ===
-    fund_flow_source = FundFlowSource()
-    manager.register(
-        fund_flow_source,
-        DataSourceConfig(
-            source_class=type(fund_flow_source),
-            name=fund_flow_source.name,
-            source_type=DataSourceType.SECTOR,
-            enabled=True,
-            priority=15,
-        ),
-    )
-
-    # === 资金流向作为板块数据备用源 ===
-    # 当 stock_board_industry_spot_em 等接口失败时使用
-    fund_flow_as_sector_source = FundFlowAsSectorSource()
-    manager.register(
-        fund_flow_as_sector_source,
-        DataSourceConfig(
-            source_class=type(fund_flow_as_sector_source),
-            name=fund_flow_as_sector_source.name,
-            source_type=DataSourceType.SECTOR,
-            enabled=True,
-            priority=3,  # 在 EastMoney 直连之后（资金流向更稳定）
         ),
     )
 
